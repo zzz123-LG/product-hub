@@ -469,3 +469,7 @@ table.list mark { background: #ffe9a8; border-radius: 2px; padding: 0 1px; }
 .price-table td.hot { color: var(--red); font-weight: 700; }
 .price-table td.empty { color: #c4c9d4; }
 .price-table tbody tr:last-child td { border-bottom: none; }
+.price-table tr.group-row th { text-align: center; background: #edf3ed; color: var(--ink); font-weight: 600; font-size: .82rem; border-left: 1px dashed var(--border); }
+.price-table tr.group-row th:first-child { border-left: none; }
+.price-table thead tr:not(.group-row) th { border-left: 1px dashed var(--border); }
+.price-table thead tr:not(.group-row) th:first-child { border-left: none; }
