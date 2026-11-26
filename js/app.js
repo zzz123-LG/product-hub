@@ -37,12 +37,12 @@ const STRUCT_FIELDS = [
   { k: 'statusChangeDate', label: '状态变更时间', type: 'date' },
   { k: 'priceNormal', label: '日常价（元）', type: 'number', required: true },
   { k: 'pricePromo', label: '大促价（元）', type: 'number' },
-  { k: 'priceS', label: 'S秒杀价（元）', type: 'number' },
+  { k: 'priceS', label: 'S大促价（元）', type: 'number' },
   { k: 'priceOnlineDist', label: '线上分销价（元）', type: 'number' },
   { k: 'priceDealer', label: '经销商供货价（元）', type: 'number' },
-  { k: 'priceBulk50', label: '一票到底50套价（元）', type: 'number' },
-  { k: 'priceBulk100', label: '一票到底100套价（元）', type: 'number' },
-  { k: 'priceSmartHome', label: '智能家居渠道供货价（元）', type: 'number' },
+  { k: 'priceBulk50', label: '50套促销价（元）', type: 'number' },
+  { k: 'priceBulk100', label: '100套促销价（元）', type: 'number' },
+  { k: 'priceSmartHome', label: '智能家居价（元）', type: 'number' },
   { k: 'priceSubsidy', label: '国补到手价（元）', type: 'number' },
   { k: 'priceUnified', label: '统一价报名价（元）', type: 'number' },
   { k: 'priceDouyinNov', label: '抖音报名价 11.14-11.30（元）', type: 'number' },
@@ -65,7 +65,8 @@ const STRUCT_FIELDS = [
 ];
 const FIELD_MAP = Object.fromEntries(STRUCT_FIELDS.map(f => [f.k, f.label]));
 const FIELD_KEYS = STRUCT_FIELDS.map(f => f.k);
-const SENSITIVE = ['priceDealer', 'priceOnlineDist', 'priceBulk50', 'priceBulk100', 'priceSmartHome'];
+/* 价格字段：详情页「渠道价格」表格的列（按 STRUCT_FIELDS 顺序） */
+const PRICE_KEYS = STRUCT_FIELDS.filter(x => x.type === 'number').map(x => x.k);
 const ROLES = {
   admin: '管理员', reviewer: '审核者', editor: '编辑者', writer: '填写者', viewer: '查看者',
 };
@@ -108,7 +109,7 @@ const PAGE_SUBS = {
 };
 const ROLE_DESC = {
   admin: '数据管理员 · 全程权限',
-  reviewer: '审核者 · 审批与敏感价格',
+  reviewer: '审核者 · 审批与发布',
   editor: '编辑者 · 全库编辑发布',
   writer: '填写者 · 编辑后提交待审',
   viewer: '查看者 · 只读访问',
@@ -128,14 +129,14 @@ function seedDB() {
     return {
       id: p.id, fields,
       custom: {},
-      description: `<p>${esc(p.series)}系列 <b>${esc(p.model)}</b>。日常价 ${fmtMoney(p.priceNormal)}，上市于 ${esc(p.launchDate || '—')}。价格体系含日常价 / 大促价 / S秒杀价 / 分销价等，请以最新审核版本为准。</p>`,
+      description: `<p>${esc(p.series)}系列 <b>${esc(p.model)}</b>。日常价 ${fmtMoney(p.priceNormal)}，上市于 ${esc(p.launchDate || '—')}。价格体系含日常价 / 大促价 / S大促价 / 分销价等，请以最新审核版本为准。</p>`,
       tags: p.tags || [],
       attachments: i < 6 ? [{
         id: uid(), name: `${p.model}_规格书.pdf`, cat: '规格书', size: 380 + i * 66, type: 'application/pdf', date: '2026-10-20', note: '初始导入', text: `${p.model} 智能锁 规格书 指纹 密码 NFC 防撬报警`,
       }] : [],
       comments: i < 3 ? [{
         id: uid(), author: '楼洋昕', at: '2026-11-20 10:30',
-        text: `@张国焘 请核对 ${p.model} 的 S秒杀价 与大促价，双11价格表里数值有调整。`,
+        text: `@张国焘 请核对 ${p.model} 的 S大促价 与大促价，双11价格表里数值有调整。`,
       }] : [],
       versions: [{
         id: uid(), at: p.updatedAt || '2026-11-01', by: '系统导入',
@@ -236,7 +237,6 @@ const can = (action) => {
     review: ['admin', 'reviewer'].includes(r),
     delete: ['admin'].includes(r),
     settings: ['admin'].includes(r),
-    sensitive: ['admin', 'reviewer'].includes(r),
     comment: r !== 'viewer',
   };
   return m[action] !== undefined ? m[action] : false;
@@ -925,15 +925,19 @@ function renderDrawer() {
           ${can('delete') ? `<button class="btn sm danger" data-op="del">删除</button>` : ''}
         </span>
       </div>
-      <div class="field-grid">
-        ${STRUCT_FIELDS.filter(x => !SENSITIVE.includes(x.k)).map(x => `
+      <div class="section-title">渠道价格 <span class="hint">${PRICE_KEYS.length} 项价格 · 可横向滚动查看</span></div>
+      <div class="price-scroll"><table class="price-table">
+        <thead><tr><th class="ch">销售渠道</th>${PRICE_KEYS.map(k => `<th>${esc(FIELD_MAP[k].replace(/（元）$/, ''))}</th>`).join('')}</tr></thead>
+        <tbody><tr>
+          <td class="ch">${esc(f.channel || '—')}</td>
+          ${PRICE_KEYS.map(k => f[k] != null && f[k] !== '' ? `<td class="num${k === 'priceNormal' ? ' hot' : ''}" title="${esc(FIELD_MAP[k])}">${fmtMoney(f[k])}</td>` : `<td class="empty">—</td>`).join('')}
+        </tr></tbody>
+      </table></div>
+      <div class="field-grid" style="margin-top:18px">
+        ${STRUCT_FIELDS.filter(x => x.type !== 'number').map(x => `
           <div class="f-item"><div class="f-label">${x.label}${x.required ? ' *' : ''}</div>
-          <div class="f-value ${f[x.k] ? '' : 'empty'}">${x.type === 'number' && f[x.k] ? fmtMoney(f[x.k]) : (x.k === 'status' && f[x.k] ? statusBadge(f[x.k]) : esc(f[x.k] || '未填写'))}</div></div>`).join('')}
+          <div class="f-value ${f[x.k] ? '' : 'empty'}">${x.k === 'status' && f[x.k] ? statusBadge(f[x.k]) : esc(f[x.k] || '未填写')}</div></div>`).join('')}
       </div>
-      ${can('sensitive') ? `<div class="section-title">敏感价格（仅管理员/审核者可见）<span class="hint">分销价、供货价、一票到底价</span></div>
-      <div class="field-grid">${SENSITIVE.map(k => `
-        <div class="f-item"><div class="f-label">${FIELD_MAP[k]}</div><div class="f-value ${f[k] ? '' : 'empty'}">${f[k] ? fmtMoney(f[k]) : '未填写'}</div></div>`).join('')}</div>`
-        : '<div class="notice warn">存在敏感价格字段（分销价/供货价/一票到底价），当前角色不可见。</div>'}
       ${DB.customFields.length ? `<div class="section-title">自定义字段 <span class="hint">按产品线配置</span></div><div class="field-grid">${customHtml || '<span style="color:var(--muted);font-size:.85rem">该系列暂无自定义字段</span>'}</div>` : ''}
       <div class="section-title">产品描述</div>
       <div class="desc-box">${p.description || '<span style="color:var(--muted)">未填写</span>'}</div>
@@ -1181,7 +1185,7 @@ function openEditor(p) {
     } else if (x.type === 'date') {
       input = `<input type="date" data-k="${x.k}" value="${esc(String(v).replace(/\./g, '-')).slice(0, 10)}">`;
     } else if (x.type === 'number') {
-      input = `<input type="number" step="0.01" min="0" data-k="${x.k}" value="${v === undefined ? '' : v}" ${SENSITIVE.includes(x.k) && !can('sensitive') ? 'disabled placeholder="无权限编辑"' : ''}>`;
+      input = `<input type="number" step="0.01" min="0" data-k="${x.k}" value="${v === undefined ? '' : v}">`;
     } else {
       input = `<input type="text" data-k="${x.k}" value="${esc(v)}">`;
     }
@@ -1715,7 +1719,7 @@ function renderSettings() {
           <tr><td><b>查看者</b></td><td><div class="matrix"><span>查看</span><span class="no">编辑</span><span class="no">审核</span></div></td></tr>
           <tr><td><b>填写者</b></td><td><div class="matrix"><span>查看</span><span>新建/编辑自己的</span><span>提交审核</span><span>评论</span><span class="no">直接发布</span></div></td></tr>
           <tr><td><b>编辑者</b></td><td><div class="matrix"><span>查看</span><span>编辑全部</span><span>直接发布</span><span>评论</span><span class="no">审核</span><span class="no">删除</span></div></td></tr>
-          <tr><td><b>审核者</b></td><td><div class="matrix"><span>编辑者权限</span><span>审核通过/驳回</span><span>敏感价格可见</span></div></td></tr>
+          <tr><td><b>审核者</b></td><td><div class="matrix"><span>编辑者权限</span><span>审核通过/驳回</span></div></td></tr>
           <tr><td><b>管理员</b></td><td><div class="matrix"><span>全部权限</span><span>删除/回收站</span><span>合并</span><span>自定义字段</span></div></td></tr>
         </tbody></table>
         <div class="notice info" style="margin-top:12px">外部共享：演示版未启用；生产版建议共享链接带有效期与访问控制。</div>
