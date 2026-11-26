@@ -307,7 +307,7 @@ function renderFakeLock() {
     <div class="toolbar">
       <select id="fkSeries"><option value="">全部系列</option>${seriesList.map(s => `<option ${fakeState.series === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
       <span class="spacer"></span>
-      <span class="count-tip">${can('editAll') ? '双击价格可直接修改 · 点「编辑」改全部字段' : ''} · 共 ${rows.length} 个假锁</span>
+      <span class="count-tip">${can('editAll') ? '所有列双击即可修改 · 点「编辑」打开完整表单' : ''} · 共 ${rows.length} 个假锁</span>
     </div>
     <div class="table-wrap">
       <table class="list fake-table"><thead><tr>
@@ -317,21 +317,23 @@ function renderFakeLock() {
       ${rows.map(m => {
         const open = fakeState.expand.has(m.id);
         const ok = m.priceNormal !== null && m.priceNormal !== undefined && m.priceNormal !== '';
+        const eT = can('editAll') ? 'editable' : '';
+        const eTitle = can('editAll') ? ' title="双击可直接修改"' : '';
         return `
         <tr class="fk-row ${open ? 'open' : ''}" data-id="${m.id}">
           <td><button class="fk-toggle" data-toggle="${m.id}" title="${open ? '收起' : '展开'}">${open ? '−' : '+'}</button></td>
-          <td style="color:var(--muted)">${esc(m.series)}</td>
-          <td><span class="model">${esc(m.model)}</span>${open ? `<div class="sub-line">SKU：${esc(m.sku || '—')}</div>` : ''}</td>
-          <td><div class="chip-line">${m.reals.map(r => `<span class="chip-real">${esc(r)}</span>`).join('')}${m.reals.length > 3 && !open ? `<span class="chip-more">+${m.reals.length - 3}</span>` : ''}${!m.reals.length ? '<span style="color:var(--muted)">未映射</span>' : ''}</div>${open && m.reals.length > 3 ? '' : ''}</td>
-          <td class="price editable" data-id="${m.id}" data-field="priceNormal" title="${can('editAll') ? '双击可直接修改' : ''}">${fmtPrice(m.priceNormal)}</td>
-          <td class="price muted-p editable" data-id="${m.id}" data-field="priceEcom" title="${can('editAll') ? '双击可直接修改' : ''}">${fmtPrice(m.priceEcom)}</td>
-          <td class="price muted-p editable" data-id="${m.id}" data-field="priceOffline" title="${can('editAll') ? '双击可直接修改' : ''}">${fmtPrice(m.priceOffline)}</td>
+          <td class="editable ${eT}" data-id="${m.id}" data-field="series" data-type="select"${eTitle} style="color:var(--muted)">${esc(m.series)}</td>
+          <td class="editable ${eT}" data-id="${m.id}" data-field="model" data-type="text"${eTitle}><span class="model">${esc(m.model)}</span>${open ? `<div class="sub-line">SKU：${esc(m.sku || '—')}</div>` : ''}</td>
+          <td class="editable ${eT}" data-id="${m.id}" data-field="reals" data-type="reals"${eTitle}><div class="chip-line">${m.reals.map(r => `<span class="chip-real">${esc(r)}</span>`).join('')}${m.reals.length > 3 && !open ? `<span class="chip-more">+${m.reals.length - 3}</span>` : ''}${!m.reals.length ? '<span style="color:var(--muted)">未映射</span>' : ''}</div></td>
+          <td class="price editable ${eT}" data-id="${m.id}" data-field="priceNormal" data-type="number"${eTitle}>${fmtPrice(m.priceNormal)}</td>
+          <td class="price muted-p editable ${eT}" data-id="${m.id}" data-field="priceEcom" data-type="number"${eTitle}>${fmtPrice(m.priceEcom)}</td>
+          <td class="price muted-p editable ${eT}" data-id="${m.id}" data-field="priceOffline" data-type="number"${eTitle}>${fmtPrice(m.priceOffline)}</td>
           <td><span class="badge-st ${ok ? 'st-normal' : 'st-warn'}"><i class="dot"></i>${ok ? '正常' : '待补价'}</span></td>
           <td>${can('editAll') ? `<button class="link-btn" data-edit="${m.id}">编辑</button>${can('delete') ? ` · <button class="link-btn danger" data-del="${m.id}">删除</button>` : ''}` : '<span style="color:var(--muted)">—</span>'}</td>
         </tr>
         ${open ? `<tr class="fk-detail"><td></td><td colspan="8">
           <div class="fk-detail-inner">
-            <span class="fk-k">假锁SKU</span><span>${esc(m.sku || '—')}</span>
+            <span class="fk-k">假锁SKU</span><span class="editable ${eT}" data-id="${m.id}" data-field="sku" data-type="text"${eTitle} style="cursor:${can('editAll') ? 'cell' : 'default'}">${esc(m.sku || '双击填写')}</span>
             <span class="fk-k">映射真锁（${m.reals.length}）</span><span>${m.reals.map(r => `<span class="chip-real">${esc(r)}</span>`).join(' ') || '—'}</span>
           </div>
         </td></tr>` : ''}`;
@@ -346,24 +348,56 @@ function renderFakeLock() {
     renderFakeLock();
   });
   $$('[data-edit]', el).forEach(b => b.onclick = () => openFakeModal(DB.fakeMaps.find(m => m.id === b.dataset.edit)));
-  /* 价格行内编辑：双击单元格 → 输入框 → 回车/失焦保存 */
+  /* 行内编辑：双击任意内容单元格 → 输入控件 → 回车/失焦保存 */
   $$('.editable', el).forEach(td => td.ondblclick = () => {
     if (!can('editAll')) { toast('当前角色无编辑权限', 'warn'); return; }
-    if (td.querySelector('input')) return;
+    if (td.querySelector('input, select')) return;
     const rec = DB.fakeMaps.find(m => m.id === td.dataset.id);
     if (!rec) return;
     const field = td.dataset.field;
+    const type = td.dataset.type || 'text';
     const cur = rec[field];
-    td.innerHTML = `<input class="cell-input" type="number" step="0.01" min="0" value="${cur ?? ''}">`;
-    const input = td.querySelector('input');
-    input.focus(); input.select();
+    let ctrl;
+    if (type === 'select') {
+      const opts = [...new Set((DB.fakeMaps || []).map(x => x.series))];
+      ctrl = `<select class="cell-input">${opts.map(s => `<option ${s === cur ? 'selected' : ''}>${esc(s)}</option>`).join('')}<option value="__new">＋ 新系列…</option></select>`;
+    } else if (type === 'reals') {
+      ctrl = `<input class="cell-input" style="width:220px" value="${esc((cur || []).join(', '))}" placeholder="多个型号用逗号分隔">`;
+    } else if (type === 'number') {
+      ctrl = `<input class="cell-input" type="number" step="0.01" min="0" value="${cur ?? ''}">`;
+    } else {
+      ctrl = `<input class="cell-input" value="${esc(cur || '')}">`;
+    }
+    td.innerHTML = ctrl;
+    const input = td.querySelector('input, select');
+    input.focus();
+    if (input.select) input.select();
     let done = false;
     const commit = () => {
       if (done) return; done = true;
       const v = input.value;
-      rec[field] = v === '' ? null : Number(v);
+      /* select 选了「新系列」→ 原地变文本输入继续编辑 */
+      if (type === 'select' && v === '__new') {
+        td.innerHTML = `<input class="cell-input" placeholder="输入新系列名称">`;
+        const ni = td.querySelector('input');
+        ni.focus();
+        let d2 = false;
+        const commit2 = () => {
+          if (d2) return; d2 = true;
+          const nv = ni.value.trim();
+          if (nv) { rec[field] = nv; saveDB(); renderFakeLock(); toast('已保存（自动同步云端）', 'ok'); }
+          else renderFakeLock();
+        };
+        ni.onblur = commit2;
+        ni.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); commit2(); } else if (e.key === 'Escape') { d2 = true; renderFakeLock(); } };
+        return;
+      }
+      if (type === 'number') rec[field] = v === '' ? null : Number(v);
+      else if (type === 'reals') rec[field] = v.split(/[,\n，、]/).map(s => s.trim()).filter(Boolean);
+      else if (field === 'model' && !v.trim()) { toast('型号不能为空', 'warn'); renderFakeLock(); return; }
+      else rec[field] = v.trim();
       saveDB(); renderFakeLock();
-      toast('价格已更新（已同步云端）', 'ok');
+      toast('已保存（自动同步云端）', 'ok');
     };
     input.onblur = commit;
     input.onkeydown = e => {
