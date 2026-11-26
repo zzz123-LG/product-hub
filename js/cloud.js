@@ -125,6 +125,7 @@ async function cloudSync(onReady) {
       try { localStorage.setItem(CLOUD_REV_KEY, meta.sha.slice(0, 7)); } catch (e) { /* ignore */ }
       persistLocal(); /* 覆盖本地缓存，不触发云端回写，避免回环 */
       applySeedOwners();
+      if (typeof applySeedFakeOwners === 'function') applySeedFakeOwners();
       if (typeof onReady === 'function') onReady();
     }
     cloudStatus('已同步 ' + meta.sha.slice(0, 7), 'ok');
