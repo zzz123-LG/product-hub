@@ -62,6 +62,12 @@ input, select, textarea { font-family: inherit; font-size: .92rem; color: var(--
 .suggest-pop .s-item .hist { color: var(--muted); font-size: .82rem; }
 .suggest-pop .s-item mark { background: #ffe9a8; border-radius: 2px; padding: 0 1px; }
 
+/* 假锁中心：行内编辑 */
+.fake-table .editable { cursor: cell; }
+.fake-table .editable:hover { background: var(--accent-weak); border-radius: 4px; }
+.fake-table .cell-input { width: 90px; padding: 4px 8px; border: 1px solid var(--accent, #4b5ae8); border-radius: 6px; font-size: 13px; color: var(--text); outline: none; background: #fff; }
+.fake-table .cell-input:focus { box-shadow: 0 0 0 2px rgba(75, 90, 232, .18); }
+
 /* 云端同步状态指示（顶栏） */
 .sync-dot { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 13px; font-size: 12px; font-weight: 500; background: var(--bg); color: var(--muted, #8a90a8); cursor: pointer; white-space: nowrap; }
 .sync-dot.ok { color: #2e9e5b; }
