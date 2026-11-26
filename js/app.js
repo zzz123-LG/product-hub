@@ -54,9 +54,9 @@ const STRUCT_FIELDS = [
 ];
 const FIELD_MAP = Object.fromEntries(STRUCT_FIELDS.map(f => [f.k, f.label]));
 const FIELD_KEYS = STRUCT_FIELDS.map(f => f.k);
-/* 价格字段：详情页「渠道价格」表格的列（按 STRUCT_FIELDS 顺序） */
+/* 价格字段：详情页「发文价格」表格的列（按 STRUCT_FIELDS 顺序） */
 const PRICE_KEYS = STRUCT_FIELDS.filter(x => x.type === 'number' && !x.promoGroup).map(x => x.k);
-/* 活动价格表：两级表头（表头分组 → 列），字段带 promoGroup: true 不进渠道价格表；cols: [字段, 表头文案] */
+/* 电商价格表：两级表头（表头分组 → 列），字段带 promoGroup: true 不进发文价格表；cols: [字段, 表头文案] */
 const PROMO_GROUPS = [
   { name: '日常-无会员券', cols: [['pricePubDaily', '普惠价'], ['pricePubSubsidy', '国补后到手（15%）']] },
   { name: '活动有会员券-9折', cols: [['priceActPub', '普惠价'], ['priceCouponDeal', '会员券后到手'], ['priceCouponSubDeal', '会员国补到手价（15%）']] },
@@ -928,7 +928,7 @@ function renderDrawer() {
           ${can('delete') ? `<button class="btn sm danger" data-op="del">删除</button>` : ''}
         </span>
       </div>
-      <div class="section-title">渠道价格 <span class="hint">${PRICE_KEYS.length} 项价格 · 可横向滚动查看</span></div>
+      <div class="section-title">发文价格 <span class="hint">${PRICE_KEYS.length} 项价格 · 可横向滚动查看</span></div>
       <div class="price-scroll"><table class="price-table">
         <thead><tr><th class="ch">销售渠道</th>${PRICE_KEYS.map(k => `<th>${esc(FIELD_MAP[k].replace(/（元）$/, ''))}</th>`).join('')}</tr></thead>
         <tbody><tr>
@@ -936,7 +936,7 @@ function renderDrawer() {
           ${PRICE_KEYS.map(k => f[k] != null && f[k] !== '' ? `<td class="num${k === 'priceNormal' ? ' hot' : ''}" title="${esc(FIELD_MAP[k])}">${fmtMoney(f[k])}</td>` : `<td class="empty">—</td>`).join('')}
         </tr></tbody>
       </table></div>
-      <div class="section-title" style="margin-top:18px">活动价格 <span class="hint">日常/活动 两档 · 可横向滚动查看</span></div>
+      <div class="section-title" style="margin-top:18px">电商价格 <span class="hint">日常/活动 两档 · 可横向滚动查看</span></div>
       <div class="price-scroll"><table class="price-table promo">
         <thead>
           <tr class="group-row"><th class="ch" rowspan="2">销售渠道</th>${PROMO_GROUPS.map(g => `<th colspan="${g.cols.length}">${esc(g.name)}</th>`).join('')}</tr>
