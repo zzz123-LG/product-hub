@@ -1727,4 +1727,54 @@ function init() {
   renderBell();
   if (typeof XLSX === 'undefined') console.warn('SheetJS 未加载：导入/导出功能不可用');
 }
-init();
+
+/* ===== 登录门（纯前端访问控制：账号 admin123 / 密码 cp123456） ===== */
+const GATE_USER = 'admin123';
+const GATE_PASS = 'cp123456';
+const AUTH_KEY = 'pim_auth';
+
+function showGate() {
+  const mask = document.createElement('div');
+  mask.id = 'loginGate';
+  mask.innerHTML = `
+  <style>
+    #loginGate{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#eef1fb,#e6ebff);}
+    #loginGate .card{width:360px;background:#fff;border-radius:16px;box-shadow:0 12px 40px rgba(30,40,120,.12);padding:40px 36px;text-align:left;}
+    #loginGate h1{font-size:20px;color:#1c2340;margin:0 0 6px;}
+    #loginGate .sub{font-size:12px;color:#8a90a8;margin:0 0 24px;}
+    #loginGate input{width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:12px;border:1px solid #d8dcec;border-radius:8px;font-size:14px;outline:none;}
+    #loginGate input:focus{border-color:#4b5ae8;}
+    #loginGate button{width:100%;padding:11px 0;border:0;border-radius:8px;background:#4b5ae8;color:#fff;font-size:14px;cursor:pointer;margin-top:4px;}
+    #loginGate button:hover{background:#3f4dd0;}
+    #loginGate .err{color:#e05a5a;font-size:12px;min-height:18px;margin:6px 0 0;}
+  </style>
+  <div class="card">
+    <h1>锁云 · 产品主数据平台</h1>
+    <div class="sub">请使用公司分配的账号登录访问</div>
+    <input id="gateUser" placeholder="登录账号" autocomplete="username">
+    <input id="gatePass" type="password" placeholder="密码" autocomplete="current-password">
+    <button id="gateBtn">登 录</button>
+    <div class="err" id="gateErr"></div>
+  </div>`;
+  document.body.appendChild(mask);
+  const tryLogin = () => {
+    const u = mask.querySelector('#gateUser').value.trim();
+    const p = mask.querySelector('#gatePass').value;
+    if (u === GATE_USER && p === GATE_PASS) {
+      try { localStorage.setItem(AUTH_KEY, 'yes'); } catch (e) { /* ignore */ }
+      mask.remove();
+      init();
+    } else {
+      mask.querySelector('#gateErr').textContent = '账号或密码不正确，请重试';
+    }
+  };
+  mask.querySelector('#gateBtn').onclick = tryLogin;
+  mask.querySelector('#gatePass').addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+  mask.querySelector('#gateUser').addEventListener('keydown', e => { if (e.key === 'Enter') mask.querySelector('#gatePass').focus(); });
+}
+
+(function boot() {
+  let authed = false;
+  try { authed = localStorage.getItem(AUTH_KEY) === 'yes'; } catch (e) { /* ignore */ }
+  if (authed) { init(); } else { showGate(); }
+})();
