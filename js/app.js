@@ -307,12 +307,12 @@ function renderFakeLock() {
     <div class="toolbar">
       <select id="fkSeries"><option value="">全部系列</option>${seriesList.map(s => `<option ${fakeState.series === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
       <span class="spacer"></span>
-      <span class="count-tip">共 ${rows.length} 个假锁</span>
+      <span class="count-tip">${can('editAll') ? '双击价格可直接修改 · 点「编辑」改全部字段' : ''} · 共 ${rows.length} 个假锁</span>
     </div>
     <div class="table-wrap">
       <table class="list fake-table"><thead><tr>
         <th style="width:36px"></th><th>系列</th><th>假锁型号</th><th>通用真锁型号</th>
-        <th>日常价</th><th>电商分销价</th><th>线下供货价</th><th>状态</th>
+        <th>日常价</th><th>电商分销价</th><th>线下供货价</th><th>状态</th><th style="width:120px">操作</th>
       </tr></thead><tbody>
       ${rows.map(m => {
         const open = fakeState.expand.has(m.id);
@@ -323,20 +323,20 @@ function renderFakeLock() {
           <td style="color:var(--muted)">${esc(m.series)}</td>
           <td><span class="model">${esc(m.model)}</span>${open ? `<div class="sub-line">SKU：${esc(m.sku || '—')}</div>` : ''}</td>
           <td><div class="chip-line">${m.reals.map(r => `<span class="chip-real">${esc(r)}</span>`).join('')}${m.reals.length > 3 && !open ? `<span class="chip-more">+${m.reals.length - 3}</span>` : ''}${!m.reals.length ? '<span style="color:var(--muted)">未映射</span>' : ''}</div>${open && m.reals.length > 3 ? '' : ''}</td>
-          <td class="price">${fmtPrice(m.priceNormal)}</td>
-          <td class="price muted-p">${fmtPrice(m.priceEcom)}</td>
-          <td class="price muted-p">${fmtPrice(m.priceOffline)}</td>
+          <td class="price editable" data-id="${m.id}" data-field="priceNormal" title="${can('editAll') ? '双击可直接修改' : ''}">${fmtPrice(m.priceNormal)}</td>
+          <td class="price muted-p editable" data-id="${m.id}" data-field="priceEcom" title="${can('editAll') ? '双击可直接修改' : ''}">${fmtPrice(m.priceEcom)}</td>
+          <td class="price muted-p editable" data-id="${m.id}" data-field="priceOffline" title="${can('editAll') ? '双击可直接修改' : ''}">${fmtPrice(m.priceOffline)}</td>
           <td><span class="badge-st ${ok ? 'st-normal' : 'st-warn'}"><i class="dot"></i>${ok ? '正常' : '待补价'}</span></td>
+          <td>${can('editAll') ? `<button class="link-btn" data-edit="${m.id}">编辑</button>${can('delete') ? ` · <button class="link-btn danger" data-del="${m.id}">删除</button>` : ''}` : '<span style="color:var(--muted)">—</span>'}</td>
         </tr>
-        ${open ? `<tr class="fk-detail"><td></td><td colspan="7">
+        ${open ? `<tr class="fk-detail"><td></td><td colspan="8">
           <div class="fk-detail-inner">
             <span class="fk-k">假锁SKU</span><span>${esc(m.sku || '—')}</span>
             <span class="fk-k">映射真锁（${m.reals.length}）</span><span>${m.reals.map(r => `<span class="chip-real">${esc(r)}</span>`).join(' ') || '—'}</span>
-            <span class="fk-k">操作</span><span><button class="link-btn" data-edit="${m.id}">编辑</button>${can('delete') ? ` · <button class="link-btn danger" data-del="${m.id}">删除</button>` : ''}</span>
           </div>
         </td></tr>` : ''}`;
       }).join('')}
-      ${rows.length ? '' : '<tr><td colspan="8" style="text-align:center;padding:48px 0;color:var(--muted)">暂无假锁映射 · 点击右上角「新建映射」添加</td></tr>'}
+      ${rows.length ? '' : '<tr><td colspan="9" style="text-align:center;padding:48px 0;color:var(--muted)">暂无假锁映射 · 点击右上角「新建映射」添加</td></tr>'}
       </tbody></table>
     </div>`;
   $('#fkSeries', el).addEventListener('change', e => { fakeState.series = e.target.value; renderFakeLock(); });
@@ -346,6 +346,31 @@ function renderFakeLock() {
     renderFakeLock();
   });
   $$('[data-edit]', el).forEach(b => b.onclick = () => openFakeModal(DB.fakeMaps.find(m => m.id === b.dataset.edit)));
+  /* 价格行内编辑：双击单元格 → 输入框 → 回车/失焦保存 */
+  $$('.editable', el).forEach(td => td.ondblclick = () => {
+    if (!can('editAll')) { toast('当前角色无编辑权限', 'warn'); return; }
+    if (td.querySelector('input')) return;
+    const rec = DB.fakeMaps.find(m => m.id === td.dataset.id);
+    if (!rec) return;
+    const field = td.dataset.field;
+    const cur = rec[field];
+    td.innerHTML = `<input class="cell-input" type="number" step="0.01" min="0" value="${cur ?? ''}">`;
+    const input = td.querySelector('input');
+    input.focus(); input.select();
+    let done = false;
+    const commit = () => {
+      if (done) return; done = true;
+      const v = input.value;
+      rec[field] = v === '' ? null : Number(v);
+      saveDB(); renderFakeLock();
+      toast('价格已更新（已同步云端）', 'ok');
+    };
+    input.onblur = commit;
+    input.onkeydown = e => {
+      if (e.key === 'Enter') { e.preventDefault(); commit(); }
+      else if (e.key === 'Escape') { done = true; renderFakeLock(); }
+    };
+  });
   $$('[data-del]', el).forEach(b => b.onclick = () => {
     if (!confirm('确认删除该假锁映射？')) return;
     DB.fakeMaps = DB.fakeMaps.filter(m => m.id !== b.dataset.del);
