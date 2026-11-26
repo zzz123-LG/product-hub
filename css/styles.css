@@ -456,3 +456,16 @@ table.list mark { background: #ffe9a8; border-radius: 2px; padding: 0 1px; }
 .chip-cat.cat-b { background: #fff3e8; color: #d0741a; }
 .chip-cat.cat-m { background: #eef1f4; color: #5a6472; }
 .acc-table td.price { font-size: .95rem; }
+
+/* ===== 渠道价格表（详情抽屉） ===== */
+.price-scroll { overflow-x: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); margin-bottom: 6px; }
+.price-table { border-collapse: collapse; white-space: nowrap; font-size: .88rem; min-width: 100%; }
+.price-table th, .price-table td { padding: 10px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+.price-table thead th { background: #fafbfd; color: var(--muted); font-weight: 500; font-size: .8rem; position: sticky; top: 0; }
+.price-table thead tr:last-child th { border-bottom: 1px solid var(--border); }
+.price-table td.ch, .price-table th.ch { position: sticky; left: 0; background: var(--panel); font-weight: 600; z-index: 1; box-shadow: 1px 0 0 var(--border); }
+.price-table thead th.ch { background: #fafbfd; }
+.price-table td.num { font-variant-numeric: tabular-nums; }
+.price-table td.hot { color: var(--red); font-weight: 700; }
+.price-table td.empty { color: #c4c9d4; }
+.price-table tbody tr:last-child td { border-bottom: none; }
