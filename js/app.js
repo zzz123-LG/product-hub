@@ -44,7 +44,7 @@ const STRUCT_FIELDS = [
   { k: 'priceBulk100', label: '一票到底100套价（元）', type: 'number' },
   { k: 'priceSmartHome', label: '智能家居渠道供货价（元）', type: 'number' },
   { k: 'priceSubsidy', label: '国补到手价（元）', type: 'number' },
-  { k: 'owner', label: '负责人', type: 'enum', options: ['楼洋昕', '张国焘', '任旭岩', '李宇翔', '杜存玉', '蔡得利', '朱雨欣', '胡桂旭明'], required: true },
+  { k: 'owner', label: '负责人', type: 'enum', options: ['楼洋昕', '张国焘', '任旭岩', '李宇翔', '杜存玉', '蔡得利', '朱雨欣', '胡桂旭明', '赵雨薇'], required: true },
   { k: 'targetMarket', label: '目标市场', type: 'text' },
 ];
 const FIELD_MAP = Object.fromEntries(STRUCT_FIELDS.map(f => [f.k, f.label]));
@@ -152,7 +152,7 @@ function seedDB() {
 function loadDB() {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) { DB = JSON.parse(raw); if (DB && DB.products) { if (!DB.fakeMaps) DB.fakeMaps = (window.SEED_FAKEMAP || []).map(m => ({ ...m })); if (!DB.accessories) DB.accessories = (window.SEED_ACCESSORIES || []).map(a => ({ ...a })); return; } }
+    if (raw) { DB = JSON.parse(raw); if (DB && DB.products) { if (!DB.fakeMaps) DB.fakeMaps = (window.SEED_FAKEMAP || []).map(m => ({ ...m })); if (!DB.accessories) DB.accessories = (window.SEED_ACCESSORIES || []).map(a => ({ ...a })); applySeedFakeOwners(); return; } }
     /* 版本迁移：当前 key 不存在时，自动从所有旧版本 key（v{当前-1} ~ v1）继承数据，避免升级丢数据 */
     const curV = parseInt((LS_KEY.match(/(\d+)$/) || [0, 0])[1], 10);
     for (let v = curV - 1; v >= 1; v--) {
@@ -164,7 +164,7 @@ function loadDB() {
             DB = oldDB;
             if (!DB.fakeMaps) DB.fakeMaps = (window.SEED_FAKEMAP || []).map(m => ({ ...m }));
             if (!DB.accessories) DB.accessories = (window.SEED_ACCESSORIES || []).map(a => ({ ...a }));
-            applySeedOwners();
+            applySeedOwners(); applySeedFakeOwners();
             saveDB();
             try { localStorage.removeItem('pim_data_v' + v); } catch (e2) { /* ignore */ }
             return;
@@ -173,7 +173,15 @@ function loadDB() {
       }
     }
   } catch (e) { /* ignore */ }
-  DB = seedDB(); applySeedOwners(); saveDB();
+  DB = seedDB(); applySeedOwners(); applySeedFakeOwners(); saveDB();
+}
+/* 假锁负责人指定：E系列 / V20系列 → 赵雨薇（幂等，所有启动/云端覆盖路径都会执行） */
+function applySeedFakeOwners() {
+  const smById = Object.fromEntries((window.SEED_FAKEMAP || []).map(m => [m.id, m]));
+  (DB.fakeMaps || []).forEach(m => {
+    const sm = smById[m.id];
+    if (sm && sm.owner) m.owner = sm.owner;
+  });
 }
 /* 负责人指定：与 seed.js 保持一致，迁移/初始化后强制对齐最新分配；历史占位名一并映射到实际负责人 */
 function applySeedOwners() {
@@ -312,7 +320,7 @@ function renderFakeLock() {
     <div class="table-wrap">
       <table class="list fake-table"><thead><tr>
         <th style="width:36px"></th><th>系列</th><th>假锁型号</th><th>通用真锁型号</th>
-        <th>日常价</th><th>电商分销价</th><th>线下供货价</th><th>状态</th><th style="width:120px">操作</th>
+        <th>日常价</th><th>电商分销价</th><th>线下供货价</th><th>负责人</th><th>状态</th><th style="width:120px">操作</th>
       </tr></thead><tbody>
       ${rows.map(m => {
         const open = fakeState.expand.has(m.id);
@@ -328,17 +336,18 @@ function renderFakeLock() {
           <td class="price editable ${eT}" data-id="${m.id}" data-field="priceNormal" data-type="number"${eTitle}>${fmtPrice(m.priceNormal)}</td>
           <td class="price muted-p editable ${eT}" data-id="${m.id}" data-field="priceEcom" data-type="number"${eTitle}>${fmtPrice(m.priceEcom)}</td>
           <td class="price muted-p editable ${eT}" data-id="${m.id}" data-field="priceOffline" data-type="number"${eTitle}>${fmtPrice(m.priceOffline)}</td>
+          <td class="editable ${eT}" data-id="${m.id}" data-field="owner" data-type="owner"${eTitle}>${esc(m.owner || '未指定')}</td>
           <td><span class="badge-st ${ok ? 'st-normal' : 'st-warn'}"><i class="dot"></i>${ok ? '正常' : '待补价'}</span></td>
           <td>${can('editAll') ? `<button class="link-btn" data-edit="${m.id}">编辑</button>${can('delete') ? ` · <button class="link-btn danger" data-del="${m.id}">删除</button>` : ''}` : '<span style="color:var(--muted)">—</span>'}</td>
         </tr>
-        ${open ? `<tr class="fk-detail"><td></td><td colspan="8">
+        ${open ? `<tr class="fk-detail"><td></td><td colspan="9">
           <div class="fk-detail-inner">
             <span class="fk-k">假锁SKU</span><span class="editable ${eT}" data-id="${m.id}" data-field="sku" data-type="text"${eTitle} style="cursor:${can('editAll') ? 'cell' : 'default'}">${esc(m.sku || '双击填写')}</span>
             <span class="fk-k">映射真锁（${m.reals.length}）</span><span>${m.reals.map(r => `<span class="chip-real">${esc(r)}</span>`).join(' ') || '—'}</span>
           </div>
         </td></tr>` : ''}`;
       }).join('')}
-      ${rows.length ? '' : '<tr><td colspan="9" style="text-align:center;padding:48px 0;color:var(--muted)">暂无假锁映射 · 点击右上角「新建映射」添加</td></tr>'}
+      ${rows.length ? '' : '<tr><td colspan="10" style="text-align:center;padding:48px 0;color:var(--muted)">暂无假锁映射 · 点击右上角「新建映射」添加</td></tr>'}
       </tbody></table>
     </div>`;
   $('#fkSeries', el).addEventListener('change', e => { fakeState.series = e.target.value; renderFakeLock(); });
@@ -361,6 +370,9 @@ function renderFakeLock() {
     if (type === 'select') {
       const opts = [...new Set((DB.fakeMaps || []).map(x => x.series))];
       ctrl = `<select class="cell-input">${opts.map(s => `<option ${s === cur ? 'selected' : ''}>${esc(s)}</option>`).join('')}<option value="__new">＋ 新系列…</option></select>`;
+    } else if (type === 'owner') {
+      const owners = (STRUCT_FIELDS.find(x => x.k === 'owner') || {}).options || [];
+      ctrl = `<select class="cell-input">${owners.map(o => `<option ${o === cur ? 'selected' : ''}>${esc(o)}</option>`).join('')}<option value="__new">＋ 新负责人…</option></select>`;
     } else if (type === 'reals') {
       ctrl = `<input class="cell-input" style="width:220px" value="${esc((cur || []).join(', '))}" placeholder="多个型号用逗号分隔">`;
     } else if (type === 'number') {
@@ -376,8 +388,8 @@ function renderFakeLock() {
     const commit = () => {
       if (done) return; done = true;
       const v = input.value;
-      /* select 选了「新系列」→ 原地变文本输入继续编辑 */
-      if (type === 'select' && v === '__new') {
+      /* 下拉选了「＋ 新…」→ 原地变文本输入继续编辑 */
+      if ((type === 'select' || type === 'owner') && v === '__new') {
         td.innerHTML = `<input class="cell-input" placeholder="输入新系列名称">`;
         const ni = td.querySelector('input');
         ni.focus();
@@ -416,7 +428,8 @@ function renderFakeLock() {
 
 function openFakeModal(m) {
   const isNew = !m;
-  const d = m || { series: '', sku: '', model: '', reals: [], priceNormal: null, priceEcom: null, priceOffline: null };
+  const d = m || { series: '', sku: '', model: '', reals: [], priceNormal: null, priceEcom: null, priceOffline: null, owner: '' };
+  const OWNER_OPTS = (STRUCT_FIELDS.find(x => x.k === 'owner') || {}).options || [];
   const modal = $('#modalMask'), box = $('#modalBox');
   box.className = 'modal';
   box.innerHTML = `
@@ -433,6 +446,7 @@ function openFakeModal(m) {
         <div class="form-item"><label>日常价</label><input id="fkF-normal" type="number" step="0.01" min="0" value="${d.priceNormal ?? ''}"></div>
         <div class="form-item"><label>电商分销价</label><input id="fkF-ecom" type="number" step="0.01" min="0" value="${d.priceEcom ?? ''}"></div>
         <div class="form-item"><label>线下供货价</label><input id="fkF-offline" type="number" step="0.01" min="0" value="${d.priceOffline ?? ''}"></div>
+        <div class="form-item"><label>负责人</label><select id="fkF-owner"><option value="">未指定</option>${OWNER_OPTS.map(o => `<option ${d.owner === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></div>
       </div>
     </div>
     <div class="modal-foot">
@@ -452,9 +466,9 @@ function openFakeModal(m) {
     const reals = $('#fkF-reals', box).value.split(/[,\n，、]/).map(s => s.trim()).filter(Boolean);
     const num = id => { const v = $(id, box).value; return v === '' ? null : Number(v); };
     if (isNew) {
-      DB.fakeMaps.push({ id: uid(), series, sku: $('#fkF-sku', box).value.trim(), model, reals, priceNormal: num('#fkF-normal'), priceEcom: num('#fkF-ecom'), priceOffline: num('#fkF-offline') });
+      DB.fakeMaps.push({ id: uid(), series, sku: $('#fkF-sku', box).value.trim(), model, reals, priceNormal: num('#fkF-normal'), priceEcom: num('#fkF-ecom'), priceOffline: num('#fkF-offline'), owner: $('#fkF-owner', box).value });
     } else {
-      Object.assign(m, { series, sku: $('#fkF-sku', box).value.trim(), model, reals, priceNormal: num('#fkF-normal'), priceEcom: num('#fkF-ecom'), priceOffline: num('#fkF-offline') });
+      Object.assign(m, { series, sku: $('#fkF-sku', box).value.trim(), model, reals, priceNormal: num('#fkF-normal'), priceEcom: num('#fkF-ecom'), priceOffline: num('#fkF-offline'), owner: $('#fkF-owner', box).value });
     }
     saveDB(); close(); renderFakeLock(); renderNav();
     toast(isNew ? '映射已创建' : '映射已更新', 'ok');
