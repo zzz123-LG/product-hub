@@ -139,8 +139,6 @@ function seedDB() {
     fakeMaps: (window.SEED_FAKEMAP || []).map(m => ({ ...m })),
     accessories: (window.SEED_ACCESSORIES || []).map(a => ({ ...a })),
     customFields: [
-      { id: 'cf1', label: '防水等级', type: 'enum', options: ['IPX4', 'IPX5', 'IPX6'], required: false, applies: 'all' },
-      { id: 'cf2', label: '即热式', type: 'enum', options: ['是', '否'], required: false, applies: 'all' },
       { id: 'cf3', label: '电商链接', type: 'text', options: [], required: false, applies: 'all' },
     ],
     recQueue: [], recLog: [],
@@ -182,6 +180,15 @@ function applySeedFakeOwners() {
     const sm = smById[m.id];
     if (sm && sm.owner) m.owner = sm.owner;
   });
+  /* 清理已下线的自定义字段（防水等级/即热式），并抹掉产品上的遗留值 */
+  const REMOVED_CF = ['cf1', 'cf2', '防水等级', '即热式'];
+  if (DB.customFields) {
+    DB.customFields = DB.customFields.filter(cf => !REMOVED_CF.includes(cf.id) && !REMOVED_CF.includes(cf.label));
+    (DB.products || []).forEach(p => {
+      if (!p.custom) return;
+      REMOVED_CF.forEach(k => { delete p.custom[k]; });
+    });
+  }
 }
 /* 负责人指定：与 seed.js 保持一致，迁移/初始化后强制对齐最新分配；历史占位名一并映射到实际负责人 */
 function applySeedOwners() {
