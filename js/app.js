@@ -44,20 +44,6 @@ const STRUCT_FIELDS = [
   { k: 'priceBulk100', label: '100套促销价（元）', type: 'number' },
   { k: 'priceSmartHome', label: '智能家居价（元）', type: 'number' },
   { k: 'priceSubsidy', label: '国补到手价（元）', type: 'number' },
-  { k: 'priceUnified', label: '统一价报名价（元）', type: 'number' },
-  { k: 'priceDouyinNov', label: '抖音报名价 11.14-11.30（元）', type: 'number' },
-  { k: 'priceJD151', label: '京东国补价 11.27-12.15（元）', type: 'number' },
-  { k: 'priceJD161', label: '京东国补价 12.16-12.31（元）', type: 'number' },
-  { k: 'priceTm151', label: '天猫国补价 11.27-12.15（元）', type: 'number' },
-  { k: 'priceTm161', label: '天猫国补价 12.16-12.31（元）', type: 'number' },
-  { k: 'priceDouyinHigh', label: '抖音高管价（元）', type: 'number' },
-  { k: 'priceZcSubsidy', label: '12.1总裁场补贴（元）', type: 'number' },
-  { k: 'priceDouyinLive', label: '高管直播间（元）', type: 'number' },
-  { k: 'priceZcLive', label: '总裁直播间 12.1到手价（元）', type: 'number' },
-  { k: 'priceTaobaoCDeal', label: '淘宝C店到手价（元）', type: 'number' },
-  { k: 'priceRetailNov', label: '零售促销应对价 11.14-11.30（元）', type: 'number' },
-  { k: 'priceRetailDec', label: '零售促销应对价 12月（元）', type: 'number' },
-  { k: 'priceTradeIn', label: '以旧换新到手最低价（元）', type: 'number' },
   { k: 'pricePubDaily', label: '普惠价·日常无会员券（元）', type: 'number', promoGroup: true },
   { k: 'pricePubSubsidy', label: '国补后到手价 15%（元）', type: 'number', promoGroup: true },
   { k: 'priceActPub', label: '普惠价·活动9折（元）', type: 'number', promoGroup: true },
@@ -215,11 +201,13 @@ function applySeedFakeOwners() {
       REMOVED_CF.forEach(k => { delete p.custom[k]; });
     });
   }
-  /* 清理已下线的价格列（抖音报名价12月 / 淘宝C店挂牌价），抹掉存量值 */
+  /* 清理已下线的价格列（渠道精简：统一报名/抖音/京东/天猫/高管直播/淘宝C店/零售应对/以旧换新），抹掉存量值 */
+  const REMOVED_PRICE = ['priceUnified', 'priceDouyinNov', 'priceJD151', 'priceJD161', 'priceTm151', 'priceTm161', 'priceDouyinHigh', 'priceZcSubsidy', 'priceDouyinLive', 'priceZcLive', 'priceTaobaoCDeal', 'priceRetailNov', 'priceRetailDec', 'priceTradeIn'];
   (DB.products || []).forEach(p => {
     if (!p.fields) return;
     delete p.fields.priceDouyinDec;
     delete p.fields.priceTaobaoC;
+    REMOVED_PRICE.forEach(k => { delete p.fields[k]; });
   });
 }
 /* 负责人指定：与 seed.js 保持一致，迁移/初始化后强制对齐最新分配；历史占位名一并映射到实际负责人 */
@@ -949,7 +937,7 @@ function renderDrawer() {
         </tr></tbody>
       </table></div>
       <div class="section-title" style="margin-top:18px">活动价格 <span class="hint">日常/活动 两档 · 可横向滚动查看</span></div>
-      <div class="price-scroll"><table class="price-table">
+      <div class="price-scroll"><table class="price-table promo">
         <thead>
           <tr class="group-row"><th class="ch" rowspan="2">销售渠道</th>${PROMO_GROUPS.map(g => `<th colspan="${g.cols.length}">${esc(g.name)}</th>`).join('')}</tr>
           <tr>${PROMO_GROUPS.map(g => g.cols.map(([k, th]) => `<th>${esc(th)}</th>`).join('')).join('')}</tr>
