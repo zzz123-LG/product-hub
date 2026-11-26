@@ -188,7 +188,9 @@ function applySeedOwners() {
     if (legacy) p.fields.owner = legacy;
   });
 }
-function saveDB() { try { localStorage.setItem(LS_KEY, JSON.stringify(DB)); } catch (e) { console.warn('storage full', e); } }
+function persistLocal() { try { localStorage.setItem(LS_KEY, JSON.stringify(DB)); } catch (e) { console.warn('storage full', e); } }
+/* 保存：写本地缓存 + 防抖回写云端（cloud.js 配置为空时回写自动跳过） */
+function saveDB() { persistLocal(); if (typeof cloudPushDebounced === 'function') cloudPushDebounced(); }
 
 /* ---------------- 权限 ---------------- */
 let ME = { name: '楼洋昕', role: 'admin' };
@@ -1725,6 +1727,8 @@ function init() {
   renderNav();
   go('dashboard');
   renderBell();
+  /* 方案A：云端同步——本地先渲染保证秒开，随后后台拉取云端共享数据，有更新则覆盖重渲染 */
+  if (typeof cloudSync === 'function') cloudSync(() => { renderNav(); go(currentView || 'dashboard'); renderBell(); });
   if (typeof XLSX === 'undefined') console.warn('SheetJS 未加载：导入/导出功能不可用');
 }
 
