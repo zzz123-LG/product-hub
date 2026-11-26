@@ -58,13 +58,24 @@ const STRUCT_FIELDS = [
   { k: 'priceRetailNov', label: '零售促销应对价 11.14-11.30（元）', type: 'number' },
   { k: 'priceRetailDec', label: '零售促销应对价 12月（元）', type: 'number' },
   { k: 'priceTradeIn', label: '以旧换新到手最低价（元）', type: 'number' },
+  { k: 'pricePubDaily', label: '普惠价·日常无会员券（元）', type: 'number', promoGroup: true },
+  { k: 'pricePubSubsidy', label: '国补后到手价 15%（元）', type: 'number', promoGroup: true },
+  { k: 'priceActPub', label: '普惠价·活动9折（元）', type: 'number', promoGroup: true },
+  { k: 'priceCouponDeal', label: '会员券后到手价（元）', type: 'number', promoGroup: true },
+  { k: 'priceCouponSubDeal', label: '会员国补到手价 15%（元）', type: 'number', promoGroup: true },
   { k: 'owner', label: '负责人', type: 'enum', options: ['楼洋昕', '张国焘', '任旭岩', '李宇翔', '杜存玉', '蔡得利', '朱雨欣', '胡桂旭明', '赵雨薇'], required: true },
   { k: 'targetMarket', label: '目标市场', type: 'text' },
 ];
 const FIELD_MAP = Object.fromEntries(STRUCT_FIELDS.map(f => [f.k, f.label]));
 const FIELD_KEYS = STRUCT_FIELDS.map(f => f.k);
 /* 价格字段：详情页「渠道价格」表格的列（按 STRUCT_FIELDS 顺序） */
-const PRICE_KEYS = STRUCT_FIELDS.filter(x => x.type === 'number').map(x => x.k);
+const PRICE_KEYS = STRUCT_FIELDS.filter(x => x.type === 'number' && !x.promoGroup).map(x => x.k);
+/* 活动价格表：两级表头（表头分组 → 列），字段带 promoGroup: true 不进渠道价格表；cols: [字段, 表头文案] */
+const PROMO_GROUPS = [
+  { name: '日常-无会员券', cols: [['pricePubDaily', '普惠价'], ['pricePubSubsidy', '国补后到手（15%）']] },
+  { name: '活动有会员券-9折', cols: [['priceActPub', '普惠价'], ['priceCouponDeal', '会员券后到手'], ['priceCouponSubDeal', '会员国补到手价（15%）']] },
+];
+const PROMO_COLS = PROMO_GROUPS.flatMap(g => g.cols.map(c => c[0]));
 const ROLES = {
   admin: '管理员', reviewer: '审核者', editor: '编辑者', writer: '填写者', viewer: '查看者',
 };
@@ -935,6 +946,17 @@ function renderDrawer() {
         <tbody><tr>
           <td class="ch">${esc(f.channel || '—')}</td>
           ${PRICE_KEYS.map(k => f[k] != null && f[k] !== '' ? `<td class="num${k === 'priceNormal' ? ' hot' : ''}" title="${esc(FIELD_MAP[k])}">${fmtMoney(f[k])}</td>` : `<td class="empty">—</td>`).join('')}
+        </tr></tbody>
+      </table></div>
+      <div class="section-title" style="margin-top:18px">活动价格 <span class="hint">日常/活动 两档 · 可横向滚动查看</span></div>
+      <div class="price-scroll"><table class="price-table">
+        <thead>
+          <tr class="group-row"><th class="ch" rowspan="2">销售渠道</th>${PROMO_GROUPS.map(g => `<th colspan="${g.cols.length}">${esc(g.name)}</th>`).join('')}</tr>
+          <tr>${PROMO_GROUPS.map(g => g.cols.map(([k, th]) => `<th>${esc(th)}</th>`).join('')).join('')}</tr>
+        </thead>
+        <tbody><tr>
+          <td class="ch">${esc(f.channel || '—')}</td>
+          ${PROMO_COLS.map(k => f[k] != null && f[k] !== '' ? `<td class="num" title="${esc(FIELD_MAP[k])}">${fmtMoney(f[k])}</td>` : `<td class="empty">—</td>`).join('')}
         </tr></tbody>
       </table></div>
       <div class="field-grid" style="margin-top:18px">
