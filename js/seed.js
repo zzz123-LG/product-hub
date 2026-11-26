@@ -4787,7 +4787,7 @@ window.SEED_ACCESSORIES = [
  }
 ];
 
-/* ===== 负责人指定（麒麟Q50/Q60=楼洋昕，大圣Q5=张国焘，小嘀Q2=任旭岩，小嘀U3F/U3F下摄=李宇翔，大圣C6F=杜存玉，麒麟R9全系/玄武K77/K80=蔡得利，小嘀V20/V20F/V50F与假锁E系列/V20系列=赵雨薇）===== */
+/* ===== 负责人指定（麒麟Q50/Q60=楼洋昕，大圣Q5=张国焘，小嘀Q2=任旭岩，小嘀U3F/U3F下摄=李宇翔，大圣C6F=杜存玉，麒麟R9全系/玄武K77/K80=蔡得利，小嘀V20/V20F/V50F/E50/E50-CM/E55与假锁E系列/V20系列=赵雨薇）===== */
 (function () {
   const P = window.SEED_PRODUCTS || [];
   P.forEach(p => {
@@ -4798,7 +4798,7 @@ window.SEED_ACCESSORIES = [
     else if (p.series === '大圣' && /C6F/.test(p.model)) p.owner = '杜存玉';
     else if (p.series === '麒麟' && /^R9/.test(p.model)) p.owner = '蔡得利';
     else if (p.series === '玄武' && (p.model === 'K77' || p.model === 'K80')) p.owner = '蔡得利';
-    else if (p.series === '小嘀' && ['V20', 'V20F', 'V50F'].includes(p.model)) p.owner = '赵雨薇';
+    else if (p.series === '小嘀' && ['V20', 'V20F', 'V50F', 'E50', 'E50-CM', 'E55'].includes(p.model)) p.owner = '赵雨薇';
   });
   (window.SEED_FAKEMAP || []).forEach(m => {
     if (m.series === 'E系列' || m.series === 'V20系列') m.owner = '赵雨薇';
