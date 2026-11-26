@@ -62,6 +62,13 @@ input, select, textarea { font-family: inherit; font-size: .92rem; color: var(--
 .suggest-pop .s-item .hist { color: var(--muted); font-size: .82rem; }
 .suggest-pop .s-item mark { background: #ffe9a8; border-radius: 2px; padding: 0 1px; }
 
+/* 云端同步状态指示（顶栏） */
+.sync-dot { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 13px; font-size: 12px; font-weight: 500; background: var(--bg); color: var(--muted, #8a90a8); cursor: pointer; white-space: nowrap; }
+.sync-dot.ok { color: #2e9e5b; }
+.sync-dot.busy { color: #4b5ae8; }
+.sync-dot.err { color: #e05a5a; }
+.sync-dot::before { content: ''; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; background: currentColor; }
+
 .bell-wrap { position: relative; }
 .bell-btn { position: relative; background: var(--bg); border: none; border-radius: 19px; height: 34px; padding: 0 14px; font-size: 13px; font-weight: 500; color: var(--text); }
 .bell-btn:hover { background: var(--accent-weak); }
