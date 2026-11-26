@@ -46,8 +46,6 @@ const STRUCT_FIELDS = [
   { k: 'priceSubsidy', label: '国补到手价（元）', type: 'number' },
   { k: 'priceUnified', label: '统一价报名价（元）', type: 'number' },
   { k: 'priceDouyinNov', label: '抖音报名价 11.14-11.30（元）', type: 'number' },
-  { k: 'priceDouyinDec', label: '抖音报名价 12月（元）', type: 'number' },
-  { k: 'priceTaobaoC', label: '淘宝C店挂牌价（元）', type: 'number' },
   { k: 'priceJD151', label: '京东国补价 11.27-12.15（元）', type: 'number' },
   { k: 'priceJD161', label: '京东国补价 12.16-12.31（元）', type: 'number' },
   { k: 'priceTm151', label: '天猫国补价 11.27-12.15（元）', type: 'number' },
@@ -206,6 +204,12 @@ function applySeedFakeOwners() {
       REMOVED_CF.forEach(k => { delete p.custom[k]; });
     });
   }
+  /* 清理已下线的价格列（抖音报名价12月 / 淘宝C店挂牌价），抹掉存量值 */
+  (DB.products || []).forEach(p => {
+    if (!p.fields) return;
+    delete p.fields.priceDouyinDec;
+    delete p.fields.priceTaobaoC;
+  });
 }
 /* 负责人指定：与 seed.js 保持一致，迁移/初始化后强制对齐最新分配；历史占位名一并映射到实际负责人 */
 function applySeedOwners() {
