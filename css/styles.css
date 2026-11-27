@@ -203,9 +203,11 @@ table.list td.price { color: var(--red); font-weight: 600; }
 table.list td.price.empty { color: #c3cad6; font-weight: 400; }
 table.list td .sub-line { font-size: .74rem; color: var(--muted); font-weight: 400; }
 table.list mark { background: #ffe9a8; border-radius: 2px; padding: 0 1px; }
-/* 产品列表两级表头：绿色分组「日常-无会员券」 */
-table.list tr.group-row th { background: #d6efdb; color: #2f7d46; font-weight: 600; text-align: center; }
-table.list thead tr:not(.group-row) th { top: 41px; }
+/* 产品列表两级表头：「日常-无会员券」简约统一风格 */
+table.list:not(.fake-table) thead tr.group-row th { padding: 10px 16px; background: transparent; color: #2f7d46; font-weight: 600; font-size: .78rem; text-align: center; letter-spacing: .02em; border-bottom: 2px solid #cfe8d6; }
+table.list:not(.fake-table) thead tr:not(.group-row) th { top: 37px; }
+table.list:not(.fake-table) td:nth-child(5), table.list:not(.fake-table) td:nth-child(6) { background: #f7fbf8; }
+table.list:not(.fake-table) tbody tr:hover td:nth-child(5), table.list:not(.fake-table) tbody tr:hover td:nth-child(6) { background: #f0f7f1; }
 .table-foot { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; font-size: .85rem; color: var(--muted); flex-wrap: wrap; gap: 8px; }
 .pager button { border: 1px solid var(--border); background: #fff; border-radius: 6px; min-width: 28px; height: 28px; margin: 0 2px; font-size: .82rem; }
 .pager button.cur { background: var(--accent); border-color: var(--accent); color: #fff; }
