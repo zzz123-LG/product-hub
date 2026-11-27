@@ -478,3 +478,8 @@ table.list mark { background: #ffe9a8; border-radius: 2px; padding: 0 1px; }
 .price-table.promo thead th.ch { background: #eaf6ec; }
 .price-table.promo tr.group-row th { background: #d6efdb; color: #2f7d46; }
 .price-table td.note-cell { white-space: normal; min-width: 200px; color: var(--ink); }
+.price-table .ed-cell { cursor: cell; }
+.price-table .ed-cell:hover { outline: 1px dashed #9fc3ef; outline-offset: -2px; background: #f5f9ff; }
+.price-table.promo .ed-cell:hover { outline-color: #9fd3ab; background: #f2faf3; }
+.price-table .cell-input { width: 110px; padding: 4px 8px; border: 1px solid #4aa564; border-radius: 6px; font-size: 13px; color: #222; outline: none; background: #fff; }
+.price-table .cell-input:focus { box-shadow: 0 0 0 2px rgba(74, 165, 100, .18); }
