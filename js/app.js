@@ -49,6 +49,7 @@ const STRUCT_FIELDS = [
   { k: 'priceActPub', label: '普惠价·活动9折（元）', type: 'number', promoGroup: true },
   { k: 'priceCouponDeal', label: '会员券后到手价（元）', type: 'number', promoGroup: true },
   { k: 'priceCouponSubDeal', label: '会员国补到手价 15%（元）', type: 'number', promoGroup: true },
+  { k: 'promoNote', label: '电商价格备注', type: 'text', promoGroup: true },
   { k: 'owner', label: '负责人', type: 'enum', options: ['楼洋昕', '张国焘', '任旭岩', '李宇翔', '杜存玉', '蔡得利', '朱雨欣', '胡桂旭明', '赵雨薇'], required: true },
   { k: 'targetMarket', label: '目标市场', type: 'text' },
 ];
@@ -945,10 +946,11 @@ function renderDrawer() {
         <tbody><tr>
           <td class="ch">${esc(f.channel || '—')}</td>
           ${PROMO_COLS.map(k => f[k] != null && f[k] !== '' ? `<td class="num" title="${esc(FIELD_MAP[k])}">${fmtMoney(f[k])}</td>` : `<td class="empty">—</td>`).join('')}
-        </tr></tbody>
+        </tr>
+        <tr><td class="ch">备注</td><td colspan="${PROMO_COLS.length}" class="note-cell">${f.promoNote ? esc(f.promoNote) : '<span class="empty">—</span>'}</td></tr></tbody>
       </table></div>
       <div class="field-grid" style="margin-top:18px">
-        ${STRUCT_FIELDS.filter(x => x.type !== 'number').map(x => `
+        ${STRUCT_FIELDS.filter(x => x.type !== 'number' && !x.promoGroup).map(x => `
           <div class="f-item"><div class="f-label">${x.label}${x.required ? ' *' : ''}</div>
           <div class="f-value ${f[x.k] ? '' : 'empty'}">${x.k === 'status' && f[x.k] ? statusBadge(f[x.k]) : esc(f[x.k] || '未填写')}</div></div>`).join('')}
       </div>
