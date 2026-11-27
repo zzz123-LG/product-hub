@@ -303,7 +303,7 @@ function go(v) {
       listState.q = '';
       listState.page = 1;
       if (v === 'accessories') { listState.sort = 'priceNormal'; listState.dir = -1; }
-      else { listState.sort = 'updatedAt'; listState.dir = -1; }
+      else { listState.sort = 'launchDate'; listState.dir = -1; }
     }
   } else if (listState.scope) {
     listState.scope = null;
