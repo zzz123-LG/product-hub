@@ -972,15 +972,7 @@ function renderDrawer() {
           ${can('delete') ? `<button class="btn sm danger" data-op="del">删除</button>` : ''}
         </span>
       </div>
-      <div class="section-title">发文价格 <span class="hint">${PRICE_KEYS.length} 项价格 · 可横向滚动查看</span></div>
-      <div class="price-scroll"><table class="price-table">
-        <thead><tr><th class="ch">销售渠道</th>${PRICE_KEYS.map(k => `<th>${esc(FIELD_MAP[k].replace(/（元）$/, ''))}</th>`).join('')}</tr></thead>
-        <tbody><tr>
-          <td class="ch">${esc(f.channel || '—')}</td>
-          ${PRICE_KEYS.map(k => f[k] != null && f[k] !== '' ? `<td class="num${k === 'priceNormal' ? ' hot' : ''}" title="${esc(FIELD_MAP[k])}">${fmtMoney(f[k])}</td>` : `<td class="empty">—</td>`).join('')}
-        </tr></tbody>
-      </table></div>
-      <div class="section-title" style="margin-top:18px">电商价格 <span class="hint">日常/活动 两档 · 可横向滚动查看</span></div>
+      <div class="section-title">电商价格 <span class="hint">日常/活动 两档 · 可横向滚动查看</span></div>
       <div class="price-scroll"><table class="price-table promo">
         <thead>
           <tr class="group-row"><th class="ch" rowspan="2">销售渠道</th>${PROMO_GROUPS.map(g => `<th colspan="${g.cols.length}">${esc(g.name)}</th>`).join('')}</tr>
@@ -994,6 +986,14 @@ function renderDrawer() {
           }).join('')}
         </tr>
         <tr><td class="ch">备注</td><td colspan="${PROMO_COLS.length}" class="note-cell${canEdit ? ' ed-cell' : ''}" data-k="promoNote" data-type="text"${canEdit ? ' title="双击修改；Enter 换行，Ctrl+Enter 保存"' : ''}>${f.promoNote ? esc(f.promoNote) : '<span class="empty">—</span>'}</td></tr></tbody>
+      </table></div>
+      <div class="section-title" style="margin-top:18px">发文价格 <span class="hint">${PRICE_KEYS.length} 项价格 · 可横向滚动查看</span></div>
+      <div class="price-scroll"><table class="price-table">
+        <thead><tr><th class="ch">销售渠道</th>${PRICE_KEYS.map(k => `<th>${esc(FIELD_MAP[k].replace(/（元）$/, ''))}</th>`).join('')}</tr></thead>
+        <tbody><tr>
+          <td class="ch">${esc(f.channel || '—')}</td>
+          ${PRICE_KEYS.map(k => f[k] != null && f[k] !== '' ? `<td class="num${k === 'priceNormal' ? ' hot' : ''}" title="${esc(FIELD_MAP[k])}">${fmtMoney(f[k])}</td>` : `<td class="empty">—</td>`).join('')}
+        </tr></tbody>
       </table></div>
       <div class="field-grid" style="margin-top:18px">
         ${STRUCT_FIELDS.filter(x => x.type !== 'number' && !x.promoGroup).map(x => `
