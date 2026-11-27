@@ -62,9 +62,11 @@ async function cloudGetMeta() {
   return { sha: j.sha, revLabel: (j.sha || '').slice(0, 7), data };
 }
 
-/* 覆盖式写入远端整包数据；返回最终 commit sha */
+/* 覆盖式写入远端整包数据（已设置数据密码时自动加密成密文）；返回最终 commit sha */
 async function cloudWrite(db) {
-  const content = btoa(unescape(encodeURIComponent(JSON.stringify(db))));
+  const pw = encGetPw();
+  const payload = pw ? await encEncrypt(db, pw) : db;
+  const content = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
   for (let attempt = 0; attempt < 3; attempt++) {
     /* 每次尝试都取最新 sha（首次写入可跳过） */
     let sha;
@@ -79,6 +81,96 @@ async function cloudWrite(db) {
     /* 409 = 别人刚更新过 → 自动取新 sha 重试（last-write-wins 覆盖） */
   }
   throw new Error('remote write conflict');
+}
+
+/* ============================================================
+ * 数据内容加密：云端快照存密文（AES-GCM-256 + PBKDF2-SHA256）
+ * 明文密码只存在于浏览器 sessionStorage（可选记住→localStorage），
+ * 仓库里只有一个密文文件——拿到 snapshot.json 的人没有密码解不开
+ * ============================================================ */
+const CLOUD_PW_KEY = 'pim_data_pw';         /* sessionStorage：本次会话已解锁 */
+const CLOUD_PW_REMEMBER = 'pim_data_pw_r';  /* localStorage：勾选记住后长期保存 */
+
+function encGetPw() {
+  try { return sessionStorage.getItem(CLOUD_PW_KEY) || localStorage.getItem(CLOUD_PW_REMEMBER) || ''; } catch (e) { return ''; }
+}
+function encSavePw(pw, remember) {
+  try {
+    sessionStorage.setItem(CLOUD_PW_KEY, pw);
+    if (remember) localStorage.setItem(CLOUD_PW_REMEMBER, pw);
+    else localStorage.removeItem(CLOUD_PW_REMEMBER);
+  } catch (e) { /* ignore */ }
+}
+function encAvailable() { return typeof crypto !== 'undefined' && crypto.subtle && crypto.getRandomValues; }
+function encBufToHex(buf) { return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join(''); }
+function encHexToBuf(hex) { const a = new Uint8Array(hex.length / 2); for (let i = 0; i < a.length; i++) a[i] = parseInt(hex.substr(i * 2, 2), 16); return a; }
+function encBufToB64(buf) { let s = ''; new Uint8Array(buf).forEach(b => { s += String.fromCharCode(b); }); return btoa(s); }
+function encB64ToBuf(b64) { const s = atob(b64); const a = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i); return a; }
+
+async function encDeriveKey(pw, saltHex) {
+  const keyMat = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: encHexToBuf(saltHex), iterations: 150000, hash: 'SHA-256' },
+    keyMat, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+/* 对象 → 密文信封 { __encrypted, v, kdf, salt, iv, ct }；每次加密随机 salt/iv */
+async function encEncrypt(obj, pw) {
+  if (!encAvailable() || !pw) return obj;
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await encDeriveKey(pw, encBufToHex(salt));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(obj)));
+  return { __encrypted: true, v: 1, kdf: 'PBKDF2-SHA256-150000', app: 'pim', salt: encBufToHex(salt), iv: encBufToHex(iv), ct: encBufToB64(ct) };
+}
+/* 密文信封 → 对象；明文输入原样返回（兼容迁移期）；密码错抛异常 */
+async function encDecrypt(payload, pw) {
+  if (!payload || payload.__encrypted !== true) return payload;
+  if (!pw) throw new Error('LOCKED');
+  const key = await encDeriveKey(pw, payload.salt);
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: encHexToBuf(payload.iv) }, key, encB64ToBuf(payload.ct));
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+/* 解锁弹窗：输入数据密码 → 重新走一遍同步 */
+function encShowUnlock(onUnlocked, errMsg) {
+  let mask = document.getElementById('encGate');
+  if (mask) { if (errMsg) mask.querySelector('#encErr').textContent = errMsg; return; }
+  mask = document.createElement('div');
+  mask.id = 'encGate';
+  mask.innerHTML = `
+  <style>
+    #encGate{position:fixed;inset:0;z-index:9998;display:flex;align-items:center;justify-content:center;background:rgba(28,35,64,.45);backdrop-filter:blur(3px);}
+    #encGate .card{width:360px;background:#fff;border-radius:16px;box-shadow:0 12px 40px rgba(30,40,120,.18);padding:40px 36px;text-align:left;}
+    #encGate h1{font-size:18px;color:#1c2340;margin:0 0 6px;}
+    #encGate .sub{font-size:12px;color:#8a90a8;margin:0 0 20px;line-height:1.6;}
+    #encGate input{width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:10px;border:1px solid #d8dcec;border-radius:8px;font-size:14px;outline:none;}
+    #encGate input:focus{border-color:#4b5ae8;}
+    #encGate label{font-size:12px;color:#6b7192;display:flex;align-items:center;gap:6px;margin-bottom:12px;cursor:pointer;}
+    #encGate button{width:100%;padding:11px 0;border:0;border-radius:8px;background:#4b5ae8;color:#fff;font-size:14px;cursor:pointer;margin-top:2px;}
+    #encGate button:hover{background:#3f4dd0;}
+    #encGate .err{color:#e05a5a;font-size:12px;min-height:18px;margin:6px 0 0;}
+  </style>
+  <div class="card">
+    <h1>🔒 数据已加密</h1>
+    <div class="sub">云端数据受密码保护，请输入「数据密码」解锁查看。密码由公司统一分发，可与登录密码不同。</div>
+    <input id="encPw" type="password" placeholder="数据密码" autocomplete="current-password">
+    <label><input type="checkbox" id="encRemember" style="width:auto;margin:0;"> 在此设备上记住密码</label>
+    <button id="encBtn">解 锁</button>
+    <div class="err" id="encErr">${errMsg ? esc(errMsg) : ''}</div>
+  </div>`;
+  document.body.appendChild(mask);
+  const tryUnlock = async () => {
+    const pw = mask.querySelector('#encPw').value;
+    if (!pw) { mask.querySelector('#encErr').textContent = '请输入数据密码'; return; }
+    const btn = mask.querySelector('#encBtn');
+    btn.disabled = true; btn.textContent = '验证中…';
+    encSavePw(pw, mask.querySelector('#encRemember').checked);
+    mask.remove();
+    try { await onUnlocked(); }
+    catch (e) { encSavePw(''); encShowUnlock(onUnlocked, '密码不正确，请重试'); }
+  };
+  mask.querySelector('#encBtn').onclick = tryUnlock;
+  mask.querySelector('#encPw').addEventListener('keydown', e => { if (e.key === 'Enter') tryUnlock(); });
 }
 
 /* ============================================================
@@ -126,9 +218,19 @@ async function cloudPush() {
     let pushDb = DB;
     try {
       const meta = await cloudGetMeta();
+      let remotePlain = meta && meta.data;
+      /* 云端是密文 → 必须先验证数据密码可用（解不开就弹解锁，绝不带着错密码推送） */
+      if (remotePlain && remotePlain.__encrypted === true) {
+        try { remotePlain = await encDecrypt(remotePlain, encGetPw()); }
+        catch (e2) {
+          cloudStatus('数据已锁定', 'err');
+          encShowUnlock(() => cloudPush(), encGetPw() ? '数据密码不正确，请重试' : '');
+          return;
+        }
+      }
       const lastSha = (localStorage.getItem(CLOUD_REV_KEY) || '').slice(0, 7);
-      if (meta && meta.data && meta.data.products && meta.sha.slice(0, 7) !== lastSha) {
-        pushDb = mergeCloudData(meta.data, DB);
+      if (meta && remotePlain && remotePlain.products && meta.sha.slice(0, 7) !== lastSha) {
+        pushDb = mergeCloudData(remotePlain, DB);
         DB.products = pushDb.products;
         DB.fakeMaps = pushDb.fakeMaps;
         DB.accessories = pushDb.accessories;
@@ -165,6 +267,17 @@ async function cloudSync(onReady) {
       /* 云端空白：以当前本地数据为基准初始化 */
       await cloudPush();
       return;
+    }
+    /* 数据加密：云端是密文 → 需要数据密码，解不开弹解锁框并中止本次同步 */
+    if (meta.data.__encrypted === true) {
+      let plain = null;
+      try { plain = await encDecrypt(meta.data, encGetPw()); } catch (e) { plain = null; }
+      if (!plain || !plain.products) {
+        cloudStatus('数据已锁定', 'err');
+        encShowUnlock(() => cloudSync(onReady), encGetPw() ? '数据密码不正确，请重试' : '');
+        return;
+      }
+      meta.data = plain;
     }
     const localSha = localStorage.getItem(CLOUD_REV_KEY) || '';
     /* 严格比较：本地从未同步过（如新浏览器）也必须拉取云端，防止以种子数据覆盖云端 */
