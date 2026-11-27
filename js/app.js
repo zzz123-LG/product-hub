@@ -988,7 +988,7 @@ function renderDrawer() {
           <td class="ch${canEdit ? ' ed-cell' : ''}" data-k="__channel" data-type="text"${canEdit ? ' title="双击修改"' : ''}>${esc(f.channel || '—')}</td>
           ${PROMO_COLS.map(k => {
             const has = f[k] != null && f[k] !== '';
-            return `<td class="num${k === 'priceNormal' ? ' hot' : ''}${has ? '' : ' empty'}${canEdit ? ' ed-cell' : ''}" data-k="${k}" data-type="num" title="${esc(FIELD_MAP[k])}${canEdit ? ' · 双击修改' : ''}">${has ? fmtMoney(f[k]) : '—'}</td>`;
+            return `<td class="num${has ? '' : ' empty'}${canEdit ? ' ed-cell' : ''}" data-k="${k}" data-type="num" title="${esc(FIELD_MAP[k])}${canEdit ? ' · 双击修改' : ''}">${has ? fmtMoney(f[k]) : '—'}</td>`;
           }).join('')}
         </tr>
         <tr><td class="ch">备注</td><td colspan="${PROMO_COLS.length}" class="note-cell${canEdit ? ' ed-cell' : ''}" data-k="promoNote" data-type="text"${canEdit ? ' title="双击修改；Enter 换行，Ctrl+Enter 保存"' : ''}>${f.promoNote ? esc(f.promoNote) : '<span class="empty">—</span>'}</td></tr></tbody>
@@ -998,7 +998,7 @@ function renderDrawer() {
         <thead><tr><th class="ch">销售渠道</th>${PRICE_KEYS.map(k => `<th>${esc(FIELD_MAP[k].replace(/（元）$/, ''))}</th>`).join('')}</tr></thead>
         <tbody><tr>
           <td class="ch">${esc(f.channel || '—')}</td>
-          ${PRICE_KEYS.map(k => f[k] != null && f[k] !== '' ? `<td class="num${k === 'priceNormal' ? ' hot' : ''}" title="${esc(FIELD_MAP[k])}">${fmtMoney(f[k])}</td>` : `<td class="empty">—</td>`).join('')}
+          ${PRICE_KEYS.map(k => f[k] != null && f[k] !== '' ? `<td class="num" title="${esc(FIELD_MAP[k])}">${fmtMoney(f[k])}</td>` : `<td class="empty">—</td>`).join('')}
         </tr></tbody>
       </table></div>
       <div class="field-grid" style="margin-top:18px">
