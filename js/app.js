@@ -81,6 +81,7 @@ const NAVS = [
   { id: 'products', label: '产品中心', group: '核心模块', badge: 'locks', scope: LOCK_SERIES },
   { id: 'fakeLock', label: '假锁中心', group: '核心模块', badge: 'fake' },
   { id: 'accessories', label: '配件定价', group: '核心模块', badge: 'acc' },
+  { id: 'trend', label: '价格趋势', group: '核心模块' },
   { id: 'import', label: '导入识别', group: '治理与集成', badge: 'rec' },
   { id: 'review', label: '审核中心', group: '治理与集成', badge: 'pend', need: ['reviewer', 'admin'] },
   { id: 'quality', label: '数据质量', group: '治理与集成' },
@@ -89,7 +90,7 @@ const NAVS = [
 ];
 const VIEW_ALIAS = {}; // 视图均独立
 const PAGE_TITLES = {
-  dashboard: '总览', products: '产品中心', fakeLock: '假锁中心', accessories: '配件定价',
+  dashboard: '总览', products: '产品中心', fakeLock: '假锁中心', accessories: '配件定价', trend: '价格趋势',
   import: '导入识别', review: '审核中心', quality: '数据质量', bin: '回收站', settings: '数据字典',
 };
 const PAGE_SUBS = {
@@ -97,6 +98,7 @@ const PAGE_SUBS = {
   products: '一个型号一个主ID · 价格按渠道维护 · 关键字段结构化可检索',
   fakeLock: '假锁（演示/陈列锁）与真锁型号的对应关系',
   accessories: '把手款 / 全自动 / 高端款通用配件 + 锁体及边条价格',
+  trend: '四期《线上线下价格拉通版》价格走势 · 降价/持平/涨价一览',
   import: '上传 Excel/CSV → 自动抽取字段 → 人工校对确认后入库',
   review: '新建与重大修改需审核通过后生效，防止错误信息污染搜索与决策',
   quality: '缺字段、长期未更新、无负责人、重复产品 — 持续治理',
@@ -313,7 +315,7 @@ function go(v) {
   const viewId = VIEW_ALIAS[v] || v;
   $$('.view').forEach(s => s.classList.remove('active'));
   $('#view-' + viewId).classList.add('active');
-  ({ dashboard: renderDashboard, products: renderProducts, fakeLock: renderFakeLock, accessories: renderAccessories, import: renderImport, review: renderReview, quality: renderQuality, bin: renderBin, settings: renderSettings })[viewId]();
+  ({ dashboard: renderDashboard, products: renderProducts, fakeLock: renderFakeLock, accessories: renderAccessories, trend: renderTrend, import: renderImport, review: renderReview, quality: renderQuality, bin: renderBin, settings: renderSettings })[viewId]();
   window.scrollTo(0, 0);
 }
 const pendingCount = () => DB.products.filter(p => p.recordStatus === 'pending').length;
@@ -934,6 +936,94 @@ function trendSectionHtml(model) {
         <thead><tr><th class="ch">时期</th><th>普惠价（无会员券）</th><th>国补后到手（15%）</th><th>会员国补到手底价（15%）</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div><div style="margin-top:8px">${badge}${it.status ? `<span class="tmeta">${esc(it.status)}</span>` : ''}</div>`;
+}
+
+/* ---------------- 价格趋势（核心模块独立页） ---------------- */
+let trendState = { q: '', metric: 'pub', sort: 'delta' };
+const TREND_METRICS = [
+  { key: 'pub', label: '普惠价（无会员券）' },
+  { key: 'subsidy', label: '国补后到手（15%）' },
+  { key: 'member', label: '会员国补到手底价（15%）' },
+];
+function trendDeltaOf(it, metric) {
+  const vs = (it[metric] || []).filter(v => v != null);
+  if (vs.length < 2) return null;
+  return Math.round((vs[vs.length - 1] - vs[0]) * 100) / 100;
+}
+function trendCumBadge(vals, d) {
+  if (d == null) return '<span class="tbadge flat">仅一期</span>';
+  if (d === 0) return '<span class="tbadge flat">持平</span>';
+  const base = vals.find(v => v != null);
+  const pct = base ? Math.round(Math.abs(d) / base * 1000) / 10 : 0;
+  return d < 0
+    ? `<span class="tbadge down">▼${fmtMoney(-d).replace('¥', '')}（-${pct}%）</span>`
+    : `<span class="tbadge up">▲${fmtMoney(d).replace('¥', '')}（+${pct}%）</span>`;
+}
+function renderTrend() {
+  const el = $('#view-trend');
+  if (typeof PRICE_TREND === 'undefined') {
+    el.innerHTML = '<div class="card" style="padding:24px;color:var(--muted)">价格趋势数据未加载（js/price-trend.js）</div>';
+    return;
+  }
+  const P = PRICE_TREND.periods;
+  const metricLabel = (TREND_METRICS.find(m => m.key === trendState.metric) || TREND_METRICS[0]).label;
+  const q = trendState.q.trim().toLowerCase();
+  let rows = PRICE_TREND.items.map(it => ({ it, d: trendDeltaOf(it, trendState.metric) }))
+    .filter(r => !q || ((r.it.model + ' ' + (r.it.series || '')).toLowerCase().includes(q)));
+  if (trendState.sort === 'delta') rows.sort((a, b) => (a.d == null ? 1e9 : a.d) - (b.d == null ? 1e9 : b.d));
+  else if (trendState.sort === 'series') rows.sort((a, b) => (a.it.series || '').localeCompare(b.it.series || '', 'zh-CN') || a.it.model.localeCompare(b.it.model, 'zh-CN'));
+  else rows.sort((a, b) => a.it.model.localeCompare(b.it.model, 'zh-CN'));
+  const cnt = f => rows.filter(r => f(r.d)).length;
+  el.innerHTML = `
+    <div class="stat-grid">
+      <div class="card stat-card"><div class="label">覆盖型号</div><div class="value">${rows.length}</div><div class="delta">趋势表共 ${PRICE_TREND.items.length} 个型号</div></div>
+      <div class="card stat-card"><div class="label">下降</div><div class="value" style="color:#2f7d46">${cnt(d => d != null && d < 0)}</div><div class="delta">${esc(metricLabel)}累计走低</div></div>
+      <div class="card stat-card"><div class="label">持平</div><div class="value">${cnt(d => d === 0)}</div><div class="delta">各期价格保持稳定</div></div>
+      <div class="card stat-card"><div class="label">上涨</div><div class="value" style="color:#c0392b">${cnt(d => d != null && d > 0)}</div><div class="delta">${esc(metricLabel)}累计走高</div></div>
+      <div class="card stat-card"><div class="label">仅一期数据</div><div class="value" style="color:#8a90a8">${cnt(d => d == null)}</div><div class="delta">其余期次无记录，无法比较</div></div>
+    </div>
+    <div class="toolbar">
+      <input id="tq" type="text" placeholder="搜索型号 / 系列…" value="${esc(trendState.q)}" style="min-width:200px">
+      <select id="tmetric" title="切换价格口径">${TREND_METRICS.map(m => `<option value="${m.key}" ${m.key === trendState.metric ? 'selected' : ''}>${m.label}</option>`).join('')}</select>
+      <select id="tsort" title="排序方式">
+        <option value="delta" ${trendState.sort === 'delta' ? 'selected' : ''}>排序：降幅最大优先</option>
+        <option value="series" ${trendState.sort === 'series' ? 'selected' : ''}>排序：按系列</option>
+        <option value="model" ${trendState.sort === 'model' ? 'selected' : ''}>排序：按型号</option>
+      </select>
+      <span class="spacer"></span>
+      <span class="hint">数据来自 ${P.join(' / ')} 四期《线上线下价格拉通版》· 点击型号行可查看产品详情</span>
+    </div>
+    <div class="card" style="overflow:auto">
+      <table class="price-table trend" id="trendTable">
+        <thead><tr>
+          <th class="ch">型号</th><th>系列</th><th>状态</th>
+          ${P.map(p => `<th>${esc(p)}</th>`).join('')}
+          <th>累计变化</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map(r => {
+            const it = r.it, vs = it[trendState.metric] || [];
+            const prod = DB.products.find(p => findTrendItem(p.fields.model) === it);
+            return `<tr ${prod ? `class="trow-link" title="查看产品详情" data-pid="${prod.id}"` : ''}>
+              <td class="ch">${esc(it.model)}</td>
+              <td>${esc(it.series || '—')}</td>
+              <td>${statusBadge(it.status)}</td>
+              ${vs.map((v, i) => trendDeltaCell(v, i ? vs[i - 1] : null)).join('')}
+              <td>${trendCumBadge(vs, r.d)}</td>
+            </tr>`;
+          }).join('') || '<tr><td class="empty" style="text-align:center;padding:24px">没有匹配的型号</td></tr>'}
+        </tbody>
+      </table>
+    </div>`;
+  const tq = $('#tq');
+  tq.oninput = e => {
+    trendState.q = e.target.value;
+    renderTrend();
+    const t = $('#tq'); t.focus(); t.setSelectionRange(t.value.length, t.value.length);
+  };
+  $('#tmetric').onchange = e => { trendState.metric = e.target.value; renderTrend(); };
+  $('#tsort').onchange = e => { trendState.sort = e.target.value; renderTrend(); };
+  $$('#trendTable .trow-link').forEach(tr => tr.onclick = () => openDrawer(tr.dataset.pid));
 }
 
 function editDrawerCell(td, p) {
