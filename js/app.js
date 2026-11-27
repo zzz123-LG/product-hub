@@ -766,8 +766,8 @@ function renderProducts() {
       <select id="sortSel">
         <option value="updatedAt:-1" ${listState.sort === 'updatedAt' && listState.dir === -1 ? 'selected' : ''}>最近更新</option>
         <option value="model:1" ${listState.sort === 'model' && listState.dir === 1 ? 'selected' : ''}>型号 A→Z</option>
-        <option value="priceNormal:-1" ${listState.sort === 'priceNormal' && listState.dir === -1 ? 'selected' : ''}>价格 高→低</option>
-        <option value="priceNormal:1" ${listState.sort === 'priceNormal' && listState.dir === 1 ? 'selected' : ''}>价格 低→高</option>
+        <option value="pricePubDaily:-1" ${listState.sort === 'pricePubDaily' && listState.dir === -1 ? 'selected' : ''}>普惠价 高→低</option>
+        <option value="pricePubDaily:1" ${listState.sort === 'pricePubDaily' && listState.dir === 1 ? 'selected' : ''}>普惠价 低→高</option>
         <option value="launchDate:-1" ${listState.sort === 'launchDate' && listState.dir === -1 ? 'selected' : ''}>上市时间 新→旧</option>
       </select>
       <span class="spacer"></span>
@@ -776,24 +776,30 @@ function renderProducts() {
     </div>
     <div class="chip-row" id="chipRow"></div>
     <div class="table-wrap">
-      <table class="list"><thead><tr>
-        <th class="sortable" data-k="model">型号 ⇅</th><th>系列</th><th>品类</th><th>状态</th>
-        <th class="sortable" data-k="priceNormal">日常价 ⇅</th><th>渠道</th><th class="sortable" data-k="launchDate">上市时间 ⇅</th>
-        <th>记录状态</th><th class="sortable" data-k="updatedAt">更新 ⇅</th><th>操作</th>
-      </tr></thead><tbody>
+      <table class="list"><thead>
+        <tr class="group-row">
+          <th rowspan="2" class="sortable" data-k="model">型号 ⇅</th><th rowspan="2">系列</th><th rowspan="2">品类</th><th rowspan="2">状态</th>
+          <th colspan="2">日常-无会员券</th>
+          <th rowspan="2">渠道</th><th rowspan="2" class="sortable" data-k="launchDate">上市时间</th><th rowspan="2">记录状态</th><th rowspan="2" class="sortable" data-k="updatedAt">更新 ⇅</th><th rowspan="2">操作</th>
+        </tr>
+        <tr>
+          <th class="sortable" data-k="pricePubDaily">普惠价 ⇅</th><th class="sortable" data-k="pricePubSubsidy">国补后到手（15%）</th>
+        </tr>
+      </thead><tbody>
       ${pageItems.map(p => `<tr data-id="${p.id}">
         <td><span class="model">${highlight(p.fields.model, listState.q)}</span>${p.recordStatus !== 'published' ? `<div class="sub-line">${recBadge(p.recordStatus)}</div>` : ''}</td>
         <td>${highlight(p.fields.series, listState.q) ? esc(p.fields.series) : '—'}</td>
         <td style="color:var(--muted)">${esc(p.fields.category || catOf(p.fields.series))}</td>
         <td>${statusBadge(p.fields.status)}</td>
-        <td class="price ${p.fields.priceNormal ? '' : 'empty'}">${p.fields.priceNormal ? fmtMoney(p.fields.priceNormal) : '—'}</td>
+        <td class="price ${p.fields.pricePubDaily ? '' : 'empty'}">${p.fields.pricePubDaily ? fmtMoney(p.fields.pricePubDaily) : '—'}</td>
+        <td class="price ${p.fields.pricePubSubsidy ? '' : 'empty'}">${p.fields.pricePubSubsidy ? fmtMoney(p.fields.pricePubSubsidy) : '—'}</td>
         <td style="color:var(--muted)">${esc(p.fields.channel || '—')}</td>
         <td style="color:var(--muted)">${p.fields.launchDate ? esc(String(p.fields.launchDate).slice(0, 7)) : '—'}</td>
         <td>${p.recordStatus === 'published' ? '<span style="color:var(--muted);font-size:.8rem">已发布</span>' : recBadge(p.recordStatus)}</td>
         <td style="color:var(--muted);font-size:.8rem">${esc((p.updatedAt || '').slice(5))}</td>
         <td><button class="link-btn" data-open="${p.id}">详情</button></td>
       </tr>`).join('')}
-      ${pageItems.length ? '' : `<tr><td colspan="10" style="text-align:center;padding:48px 0;color:var(--muted)">该系列暂无产品 · 可点击右上角「新建产品」手动填入，或在「导入识别」中批量导入</td></tr>`}
+      ${pageItems.length ? '' : `<tr><td colspan="11" style="text-align:center;padding:48px 0;color:var(--muted)">该系列暂无产品 · 可点击右上角「新建产品」手动填入，或在「导入识别」中批量导入</td></tr>`}
       </tbody></table>
       <div class="table-foot">
         <span>共 ${results.length} 条 · 第 ${listState.page}/${totalPages} 页</span>
