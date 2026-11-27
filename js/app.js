@@ -881,13 +881,17 @@ function doGlobalSearch() {
 let drawerPid = null, drawerTab = 'info';
 /* 详情抽屉「电商价格」表行内编辑：双击单元格原地改，保存并记版本 */
 function editDrawerCell(td, p) {
-  if (td.querySelector('input,select')) return;
+  if (td.querySelector('input,select,textarea')) return;
   const k = td.dataset.k, type = td.dataset.type;
   const oldVal = k === '__channel' ? (p.fields.channel || '') : (p.fields[k] ?? '');
-  const input = document.createElement('input');
+  const multi = k === 'promoNote'; /* 备注多行编辑：Enter 换行，Ctrl+Enter 保存 */
+  const input = document.createElement(multi ? 'textarea' : 'input');
   input.className = 'cell-input';
-  input.type = type === 'num' ? 'number' : 'text';
-  if (type === 'num') { input.step = '0.01'; input.min = '0'; }
+  if (multi) { input.rows = 3; input.placeholder = 'Enter 换行，Ctrl+Enter 保存'; }
+  else {
+    input.type = type === 'num' ? 'number' : 'text';
+    if (type === 'num') { input.step = '0.01'; input.min = '0'; }
+  }
   input.value = oldVal === null || oldVal === undefined ? '' : oldVal;
   td.innerHTML = ''; td.appendChild(input);
   input.focus(); input.select();
@@ -911,8 +915,11 @@ function editDrawerCell(td, p) {
   };
   input.onblur = () => finish(true);
   input.onkeydown = (e) => {
-    if (e.key === 'Enter') finish(true);
-    else if (e.key === 'Escape') finish(false);
+    if (e.key === 'Escape') { finish(false); }
+    else if (e.key === 'Enter') {
+      if (multi) { if (e.ctrlKey || e.metaKey) { e.preventDefault(); finish(true); } }
+      else finish(true);
+    }
   };
 }
 
@@ -986,7 +993,7 @@ function renderDrawer() {
             return `<td class="num${k === 'priceNormal' ? ' hot' : ''}${has ? '' : ' empty'}${canEdit ? ' ed-cell' : ''}" data-k="${k}" data-type="num" title="${esc(FIELD_MAP[k])}${canEdit ? ' · 双击修改' : ''}">${has ? fmtMoney(f[k]) : '—'}</td>`;
           }).join('')}
         </tr>
-        <tr><td class="ch">备注</td><td colspan="${PROMO_COLS.length}" class="note-cell${canEdit ? ' ed-cell' : ''}" data-k="promoNote" data-type="text"${canEdit ? ' title="双击修改"' : ''}>${f.promoNote ? esc(f.promoNote) : '<span class="empty">—</span>'}</td></tr></tbody>
+        <tr><td class="ch">备注</td><td colspan="${PROMO_COLS.length}" class="note-cell${canEdit ? ' ed-cell' : ''}" data-k="promoNote" data-type="text"${canEdit ? ' title="双击修改；Enter 换行，Ctrl+Enter 保存"' : ''}>${f.promoNote ? esc(f.promoNote) : '<span class="empty">—</span>'}</td></tr></tbody>
       </table></div>
       <div class="field-grid" style="margin-top:18px">
         ${STRUCT_FIELDS.filter(x => x.type !== 'number' && !x.promoGroup).map(x => `
