@@ -500,3 +500,9 @@ table.list:not(.fake-table) tbody tr:hover td:nth-child(5), table.list:not(.fake
 .tbadge.up { background: #fdeaea; color: #c0392b; }
 .tbadge.flat { background: #f0f1f5; color: var(--muted); }
 .tmeta { margin-left: 8px; font-size: 12px; color: var(--muted); }
+/* 价格趋势独立页（核心模块） */
+#view-trend .price-table th, #view-trend .price-table td { white-space: nowrap; }
+#view-trend .price-table td.ch { min-width: 130px; }
+#view-trend .price-table td .badge-st { white-space: nowrap; }
+.price-table tr.trow-link { cursor: pointer; }
+.price-table tr.trow-link:hover td { background: #f6f4fd; }
