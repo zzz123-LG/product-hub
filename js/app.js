@@ -886,6 +886,56 @@ function doGlobalSearch() {
  * ======================================================= */
 let drawerPid = null, drawerTab = 'info';
 /* 详情抽屉「电商价格」表行内编辑：双击单元格原地改，保存并记版本 */
+/* 价格趋势：四期拉通表（8月上/8月下/9月/双11）数据在 js/price-trend.js */
+const normModelKey = (s) => String(s || '').replace(/[\s\n]/g, '').replace(/（/g, '(').replace(/）/g, ')').trim();
+function findTrendItem(model) {
+  if (typeof PRICE_TREND === 'undefined' || !model) return null;
+  const k = normModelKey(model);
+  let it = PRICE_TREND.items.find(x => normModelKey(x.model) === k);
+  if (it) return it;
+  /* 宽松匹配：型号名互相前缀（≥4字符），兼容颜色后缀/版本写法差异 */
+  it = PRICE_TREND.items.find(x => {
+    const kx = normModelKey(x.model);
+    return kx.length >= 4 && k.length >= 4 && (kx.startsWith(k) || k.startsWith(kx));
+  });
+  return it || null;
+}
+function trendDeltaCell(v, prev) {
+  if (v == null || v === '') return '<td class="empty">—</td>';
+  let delta = '';
+  if (prev != null && prev !== '') {
+    const d = Math.round((v - prev) * 100) / 100;
+    if (d > 0) delta = `<span class="tdelta up" title="较上期上涨">▲${fmtMoney(d).replace('¥', '')}</span>`;
+    else if (d < 0) delta = `<span class="tdelta down" title="较上期下降">▼${fmtMoney(-d).replace('¥', '')}</span>`;
+  }
+  return `<td class="num">${fmtMoney(v)}${delta}</td>`;
+}
+function trendSectionHtml(model) {
+  const head = `<div class="section-title" style="margin-top:18px">价格趋势 <span class="hint">8月上 → 8月下 → 9月 → 双11 · 数据来自各期《线上线下价格拉通版》</span></div>`;
+  const it = findTrendItem(model);
+  if (!it) return head + `<div class="price-scroll"><table class="price-table trend"><tbody><tr><td class="empty" style="text-align:center;padding:18px">四期拉通表中未找到该型号的价格记录</td></tr></tbody></table></div>`;
+  const P = PRICE_TREND.periods;
+  const ps = it.pub.filter(v => v != null);
+  let badge = '<span class="tbadge flat">普惠价 持平</span>';
+  if (ps.length >= 2) {
+    const d = Math.round((ps[ps.length - 1] - ps[0]) * 100) / 100;
+    const pct = ps[0] ? Math.round(d / ps[0] * 1000) / 10 : 0;
+    badge = d < 0
+      ? `<span class="tbadge down">普惠价 累计 ▼${fmtMoney(-d).replace('¥', '')}（${pct}%）</span>`
+      : (d > 0 ? `<span class="tbadge up">普惠价 累计 ▲${fmtMoney(d).replace('¥', '')}（+${pct}%）</span>` : badge);
+  }
+  const rows = P.map((pn, i) => `<tr>
+          <td class="ch">${esc(pn)}</td>
+          ${trendDeltaCell(it.pub[i], i ? it.pub[i - 1] : null)}
+          ${trendDeltaCell(it.subsidy[i], i ? it.subsidy[i - 1] : null)}
+          ${trendDeltaCell(it.member[i], i ? it.member[i - 1] : null)}
+        </tr>`).join('');
+  return head + `<div class="price-scroll"><table class="price-table trend">
+        <thead><tr><th class="ch">时期</th><th>普惠价（无会员券）</th><th>国补后到手（15%）</th><th>会员国补到手底价（15%）</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div><div style="margin-top:8px">${badge}${it.status ? `<span class="tmeta">${esc(it.status)}</span>` : ''}</div>`;
+}
+
 function editDrawerCell(td, p) {
   if (td.querySelector('input,select,textarea')) return;
   const k = td.dataset.k, type = td.dataset.type;
@@ -1001,6 +1051,7 @@ function renderDrawer() {
           ${PRICE_KEYS.map(k => f[k] != null && f[k] !== '' ? `<td class="num" title="${esc(FIELD_MAP[k])}">${fmtMoney(f[k])}</td>` : `<td class="empty">—</td>`).join('')}
         </tr></tbody>
       </table></div>
+      ${trendSectionHtml(f.model)}
       <div class="field-grid" style="margin-top:18px">
         ${STRUCT_FIELDS.filter(x => x.type !== 'number' && !x.promoGroup).map(x => `
           <div class="f-item"><div class="f-label">${x.label}${x.required ? ' *' : ''}</div>
