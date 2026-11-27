@@ -477,3 +477,4 @@ table.list mark { background: #ffe9a8; border-radius: 2px; padding: 0 1px; }
 .price-table.promo thead th { background: #eaf6ec; }
 .price-table.promo thead th.ch { background: #eaf6ec; }
 .price-table.promo tr.group-row th { background: #d6efdb; color: #2f7d46; }
+.price-table td.note-cell { white-space: normal; min-width: 200px; color: var(--ink); }
