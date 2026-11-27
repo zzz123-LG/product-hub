@@ -879,8 +879,44 @@ function doGlobalSearch() {
  * 详情抽屉
  * ======================================================= */
 let drawerPid = null, drawerTab = 'info';
-function openDrawer(id, tab = 'info') {
-  drawerPid = id; drawerTab = tab;
+/* 详情抽屉「电商价格」表行内编辑：双击单元格原地改，保存并记版本 */
+function editDrawerCell(td, p) {
+  if (td.querySelector('input,select')) return;
+  const k = td.dataset.k, type = td.dataset.type;
+  const oldVal = k === '__channel' ? (p.fields.channel || '') : (p.fields[k] ?? '');
+  const input = document.createElement('input');
+  input.className = 'cell-input';
+  input.type = type === 'num' ? 'number' : 'text';
+  if (type === 'num') { input.step = '0.01'; input.min = '0'; }
+  input.value = oldVal === null || oldVal === undefined ? '' : oldVal;
+  td.innerHTML = ''; td.appendChild(input);
+  input.focus(); input.select();
+  let done = false;
+  const finish = (commit) => {
+    if (done) return; done = true;
+    let v = input.value.trim();
+    if (type === 'num') {
+      if (v === '') v = null;
+      else { v = Number(v); if (isNaN(v) || v < 0) { renderDrawer(); toast('请输入有效的非负价格', 'err'); return; } }
+    }
+    if (!commit || String(oldVal ?? '') === String(v ?? '')) { renderDrawer(); return; }
+    const newFields = JSON.parse(JSON.stringify(p.fields));
+    if (k === '__channel') newFields.channel = v; else newFields[k] = v;
+    const changes = diffFields(p.fields, newFields);
+    p.fields = newFields;
+    p.updatedAt = now(); p.updatedBy = ME.name;
+    if (changes.length) p.versions.unshift({ id: uid(), at: now(), by: ME.name, note: '行内修改', snapshot: JSON.parse(JSON.stringify(newFields)), changes });
+    notifySubscribers(p, `${ME.name} 行内修改了 ${p.fields.model}`);
+    saveDB(); toast('已保存', 'ok'); renderDrawer(); renderNav();
+  };
+  input.onblur = () => finish(true);
+  input.onkeydown = (e) => {
+    if (e.key === 'Enter') finish(true);
+    else if (e.key === 'Escape') finish(false);
+  };
+}
+
+function openDrawer(id, tab = 'info') {  drawerPid = id; drawerTab = tab;
   renderDrawer();
   $('#drawerMask').classList.add('open');
   $('#drawer').classList.add('open');
@@ -944,10 +980,13 @@ function renderDrawer() {
           <tr>${PROMO_GROUPS.map(g => g.cols.map(([k, th]) => `<th>${esc(th)}</th>`).join('')).join('')}</tr>
         </thead>
         <tbody><tr>
-          <td class="ch">${esc(f.channel || '—')}</td>
-          ${PROMO_COLS.map(k => f[k] != null && f[k] !== '' ? `<td class="num" title="${esc(FIELD_MAP[k])}">${fmtMoney(f[k])}</td>` : `<td class="empty">—</td>`).join('')}
+          <td class="ch${canEdit ? ' ed-cell' : ''}" data-k="__channel" data-type="text"${canEdit ? ' title="双击修改"' : ''}>${esc(f.channel || '—')}</td>
+          ${PROMO_COLS.map(k => {
+            const has = f[k] != null && f[k] !== '';
+            return `<td class="num${k === 'priceNormal' ? ' hot' : ''}${has ? '' : ' empty'}${canEdit ? ' ed-cell' : ''}" data-k="${k}" data-type="num" title="${esc(FIELD_MAP[k])}${canEdit ? ' · 双击修改' : ''}">${has ? fmtMoney(f[k]) : '—'}</td>`;
+          }).join('')}
         </tr>
-        <tr><td class="ch">备注</td><td colspan="${PROMO_COLS.length}" class="note-cell">${f.promoNote ? esc(f.promoNote) : '<span class="empty">—</span>'}</td></tr></tbody>
+        <tr><td class="ch">备注</td><td colspan="${PROMO_COLS.length}" class="note-cell${canEdit ? ' ed-cell' : ''}" data-k="promoNote" data-type="text"${canEdit ? ' title="双击修改"' : ''}>${f.promoNote ? esc(f.promoNote) : '<span class="empty">—</span>'}</td></tr></tbody>
       </table></div>
       <div class="field-grid" style="margin-top:18px">
         ${STRUCT_FIELDS.filter(x => x.type !== 'number' && !x.promoGroup).map(x => `
@@ -980,6 +1019,8 @@ function renderDrawer() {
       p.attachments = p.attachments.filter(a => a.id !== b.dataset.delatt);
       saveDB(); toast('附件已删除', 'ok'); renderDrawer();
     });
+    /* 电商价格表行内编辑：双击单元格 → 输入框 → Enter/失焦保存 */
+    if (canEdit) $$('.ed-cell', body).forEach(td => { td.ondblclick = () => editDrawerCell(td, p); });
   }
   if (drawerTab === 'history') {
     body.innerHTML = `<div class="notice info">每次编辑自动记录版本、修改人、时间与变更内容，支持对比与一键回滚；删除的产品会进入回收站。</div>` +
