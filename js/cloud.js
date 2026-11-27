@@ -4,8 +4,8 @@
  *       前端经 GitHub contents API 读写（API 支持 CORS，实时无缓存）
  *   - 读取：GET /contents/data/snapshot.json → base64 解码
  *   - 写入：PUT（携带旧文件 sha → 形成一次 commit，自动触发 Pages 重发布）
- * 冲突策略：last-write-wins——PUT 撞 sha 时自动取最新 sha 强制覆盖，
- *           被覆盖内容可在产品「版本历史」里追溯
+ * 冲突策略：先检测后合并——推送前发现云端被其他端更新过，按记录级「版本多者胜、时间新者胜」
+ *           合并后再推，避免旧标签页整包覆盖掉别人的新数据；记录可在产品「版本历史」里追溯
  * 未配置时所有函数静默跳过，行为与纯 localStorage 完全一致
  * ============================================================ */
 
@@ -81,13 +81,63 @@ async function cloudWrite(db) {
   throw new Error('remote write conflict');
 }
 
+/* ============================================================
+ * 冲突合并：多端/多标签页并发保存时，按记录合并而不是整包覆盖
+ * 记录胜出规则：versions 多者胜（编辑过的记录版本数一定更多）；
+ * 版本数相同时 updatedAt 字符串新者胜；仍相同取本地
+ * ============================================================ */
+function cloudRecScore(r) {
+  return [(r && r.versions && r.versions.length) || 0, String((r && r.updatedAt) || '')];
+}
+function cloudNewerOf(a, b) {
+  const sa = cloudRecScore(a), sb = cloudRecScore(b);
+  return (sa[0] > sb[0] || (sa[0] === sb[0] && sa[1] >= sb[1])) ? a : b;
+}
+function mergeCloudData(remote, local) {
+  const m = JSON.parse(JSON.stringify(local));
+  ['products', 'fakeMaps', 'accessories'].forEach(k => {
+    const R = remote[k] || [], L = m[k] || [];
+    const byId = {};
+    R.forEach(x => { if (x && x.id) byId[x.id] = x; });
+    const seen = {}, out = [];
+    L.forEach(x => {
+      if (!x || !x.id) return;
+      seen[x.id] = true;
+      out.push(byId[x.id] ? cloudNewerOf(x, byId[x.id]) : x);
+    });
+    R.forEach(x => { if (x && x.id && !seen[x.id]) out.push(x); });
+    m[k] = out;
+  });
+  /* 自定义字段：按 id 并集（本地优先），两端各自新增都能保留 */
+  if (remote.customFields && m.customFields) {
+    const ids = new Set(m.customFields.map(c => c.id));
+    m.customFields = m.customFields.concat(remote.customFields.filter(c => !ids.has(c.id)));
+  }
+  return m;
+}
+
 /* 整包推送（外部入口：saveDB 防抖调用 / 手动同步） */
 async function cloudPush() {
   if (!cloudEnabled() || _cloudBusy || typeof DB === 'undefined' || !DB.products) return;
   _cloudBusy = true;
   try {
     cloudStatus('云同步中…', 'busy');
-    const sha = await cloudWrite(DB);
+    /* 冲突检测：云端比本端上次见到的版本更新 → 有其他端改过，先合并再推，绝不整包盲覆盖 */
+    let pushDb = DB;
+    try {
+      const meta = await cloudGetMeta();
+      const lastSha = (localStorage.getItem(CLOUD_REV_KEY) || '').slice(0, 7);
+      if (meta && meta.data && meta.data.products && meta.sha.slice(0, 7) !== lastSha) {
+        pushDb = mergeCloudData(meta.data, DB);
+        DB.products = pushDb.products;
+        DB.fakeMaps = pushDb.fakeMaps;
+        DB.accessories = pushDb.accessories;
+        DB.customFields = pushDb.customFields;
+        persistLocal();
+        if (typeof renderNav === 'function') renderNav();
+      }
+    } catch (e) { /* 读取失败（如离线）时按本地数据尝试推送 */ }
+    const sha = await cloudWrite(pushDb);
     try { localStorage.setItem(CLOUD_REV_KEY, sha.slice(0, 7)); } catch (e) { /* ignore */ }
     cloudStatus('已同步 ' + sha.slice(0, 7), 'ok');
   } catch (e) {
@@ -117,7 +167,8 @@ async function cloudSync(onReady) {
       return;
     }
     const localSha = localStorage.getItem(CLOUD_REV_KEY) || '';
-    const same = meta.sha.slice(0, 7) === localSha.slice(0, 7) || localSha === '';
+    /* 严格比较：本地从未同步过（如新浏览器）也必须拉取云端，防止以种子数据覆盖云端 */
+    const same = meta.sha.slice(0, 7) === localSha.slice(0, 7);
     if (!same && meta.data.products) {
       DB = meta.data;
       if (!DB.fakeMaps) DB.fakeMaps = [];
