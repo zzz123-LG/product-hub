@@ -939,12 +939,14 @@ function trendSectionHtml(model) {
 }
 
 /* ---------------- 价格趋势（核心模块独立页） ---------------- */
-let trendState = { q: '', metric: 'pub', sort: 'delta' };
+let trendState = { q: '', metric: 'pub', sort: 'delta', chartSel: null };
+let trendChart = null;
 const TREND_METRICS = [
   { key: 'pub', label: '普惠价（无会员券）' },
   { key: 'subsidy', label: '国补后到手（15%）' },
   { key: 'member', label: '会员国补到手底价（15%）' },
 ];
+const TREND_COLORS = ['#5b4bb7', '#2f9e5b', '#e8853d', '#3b82c4', '#c0392b', '#8e44ad', '#16a085', '#d4a017', '#6b7fa3', '#c25b8e'];
 function trendDeltaOf(it, metric) {
   const vs = (it[metric] || []).filter(v => v != null);
   if (vs.length < 2) return null;
@@ -958,6 +960,54 @@ function trendCumBadge(vals, d) {
   return d < 0
     ? `<span class="tbadge down">▼${fmtMoney(-d).replace('¥', '')}（-${pct}%）</span>`
     : `<span class="tbadge up">▲${fmtMoney(d).replace('¥', '')}（+${pct}%）</span>`;
+}
+/* 行内迷你走势线（纯 SVG，无依赖） */
+function trendSparkline(vals) {
+  const pts = (vals || []).map((v, i) => ({ v, i })).filter(p => p.v != null);
+  if (pts.length < 2) return '<span class="tmeta">—</span>';
+  const min = Math.min(...pts.map(p => p.v)), max = Math.max(...pts.map(p => p.v));
+  const rng = (max - min) || 1;
+  const xy = pts.map(p => [4 + p.i * (92 / ((vals || []).length - 1)), 20 - (p.v - min) / rng * 16]);
+  const last = pts[pts.length - 1].v, first = pts[0].v;
+  const c = last < first ? '#2f9e5b' : last > first ? '#d64545' : '#8a90a8';
+  return `<svg class="spark" width="100" height="24" viewBox="0 0 100 24" aria-label="价格走势"><polyline points="${xy.map(p => p.map(n => Math.round(n * 10) / 10).join(',')).join(' ')}" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+/* 折线图当前展示的型号：手动选择优先，否则取可见行中降幅前 10 */
+function trendChartModels(rows) {
+  if (trendState.chartSel) return trendState.chartSel.map(m => PRICE_TREND.items.find(it => it.model === m)).filter(Boolean);
+  return rows.filter(r => r.d != null).slice(0, 10).map(r => r.it);
+}
+function renderTrendChart(selItems) {
+  if (trendChart) { trendChart.destroy(); trendChart = null; }
+  if (typeof Chart === 'undefined' || !selItems || !selItems.length) return;
+  const cv = document.getElementById('trendChartCv');
+  if (!cv) return;
+  trendChart = new Chart(cv, {
+    type: 'line',
+    data: {
+      labels: PRICE_TREND.periods,
+      datasets: selItems.map((it, i) => ({
+        label: it.model,
+        data: (it[trendState.metric] || []).slice(),
+        borderColor: TREND_COLORS[i % TREND_COLORS.length],
+        backgroundColor: TREND_COLORS[i % TREND_COLORS.length],
+        tension: 0.3, spanGaps: true, pointRadius: 4, borderWidth: 2,
+      })),
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'nearest', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, boxHeight: 12, padding: 14 } },
+        tooltip: { callbacks: { label: c => `${c.dataset.label}：${c.parsed.y == null ? '—' : fmtMoney(c.parsed.y)}` } },
+      },
+      scales: {
+        y: { ticks: { callback: v => '¥' + Number(v).toLocaleString('zh-CN') }, grid: { color: '#eef0f6' } },
+        x: { grid: { display: false } },
+      },
+    },
+  });
 }
 function renderTrend() {
   const el = $('#view-trend');
@@ -974,6 +1024,9 @@ function renderTrend() {
   else if (trendState.sort === 'series') rows.sort((a, b) => (a.it.series || '').localeCompare(b.it.series || '', 'zh-CN') || a.it.model.localeCompare(b.it.model, 'zh-CN'));
   else rows.sort((a, b) => a.it.model.localeCompare(b.it.model, 'zh-CN'));
   const cnt = f => rows.filter(r => f(r.d)).length;
+  const autoMode = !trendState.chartSel;
+  const chartItems = trendChartModels(rows);
+  const notSel = PRICE_TREND.items.filter(it => !chartItems.includes(it));
   el.innerHTML = `
     <div class="stat-grid">
       <div class="card stat-card"><div class="label">覆盖型号</div><div class="value">${rows.length}</div><div class="delta">趋势表共 ${PRICE_TREND.items.length} 个型号</div></div>
@@ -993,12 +1046,26 @@ function renderTrend() {
       <span class="spacer"></span>
       <span class="hint">数据来自 ${P.join(' / ')} 四期《线上线下价格拉通版》· 点击型号行可查看产品详情</span>
     </div>
+    <div class="card trend-chart-card">
+      <div class="trend-chart-head">
+        <strong>📉 价格走势折线图</strong>
+        <span class="tmeta">${autoMode ? `自动展示${esc(metricLabel)}降幅前 ${chartItems.length} 名（跟随当前搜索），可自行添加/移除型号` : `手动选择 ${chartItems.length} 个型号`}</span>
+        <span style="flex:1"></span>
+        <select id="taddModel"><option value="">＋ 添加型号…</option>${notSel.map(it => `<option value="${esc(it.model)}">${esc(it.model)}</option>`).join('')}</select>
+        ${!autoMode ? '<button id="tresetSel" class="link-btn">重置为自动选择</button>' : ''}
+      </div>
+      <div class="trend-chips">${chartItems.map((it, i) => {
+        const c = TREND_COLORS[i % TREND_COLORS.length];
+        return `<span class="chip"><i class="dot" style="background:${c}"></i>${esc(it.model)}<b data-rm="${esc(it.model)}" title="从折线图移除">×</b></span>`;
+      }).join('') || '<span class="tmeta">没有可比型号（需至少两期数据）</span>'}</div>
+      <div class="trend-chart-wrap"><canvas id="trendChartCv"></canvas></div>
+    </div>
     <div class="card" style="overflow:auto">
       <table class="price-table trend" id="trendTable">
         <thead><tr>
           <th class="ch">型号</th><th>系列</th><th>状态</th>
           ${P.map(p => `<th>${esc(p)}</th>`).join('')}
-          <th>累计变化</th>
+          <th>累计变化</th><th>走势</th>
         </tr></thead>
         <tbody>
           ${rows.map(r => {
@@ -1010,6 +1077,7 @@ function renderTrend() {
               <td>${statusBadge(it.status)}</td>
               ${vs.map((v, i) => trendDeltaCell(v, i ? vs[i - 1] : null)).join('')}
               <td>${trendCumBadge(vs, r.d)}</td>
+              <td>${trendSparkline(vs)}</td>
             </tr>`;
           }).join('') || '<tr><td class="empty" style="text-align:center;padding:24px">没有匹配的型号</td></tr>'}
         </tbody>
@@ -1024,6 +1092,23 @@ function renderTrend() {
   $('#tmetric').onchange = e => { trendState.metric = e.target.value; renderTrend(); };
   $('#tsort').onchange = e => { trendState.sort = e.target.value; renderTrend(); };
   $$('#trendTable .trow-link').forEach(tr => tr.onclick = () => openDrawer(tr.dataset.pid));
+  /* 折线图交互 */
+  const addSel = $('#taddModel');
+  if (addSel) addSel.onchange = e => {
+    const m = e.target.value;
+    if (!m) return;
+    const base = trendState.chartSel || chartItems.map(it => it.model);
+    trendState.chartSel = [...new Set([...base, m])];
+    renderTrend();
+  };
+  const resetBtn = $('#tresetSel');
+  if (resetBtn) resetBtn.onclick = () => { trendState.chartSel = null; renderTrend(); };
+  $$('.trend-chips b[data-rm]').forEach(b => b.onclick = () => {
+    const base = trendState.chartSel || chartItems.map(it => it.model);
+    trendState.chartSel = base.filter(m => m !== b.dataset.rm);
+    renderTrend();
+  });
+  renderTrendChart(chartItems);
 }
 
 function editDrawerCell(td, p) {
