@@ -49,7 +49,7 @@ const STRUCT_FIELDS = [
   { k: 'priceActPub', label: '普惠价·活动9折（元）', type: 'number', promoGroup: true },
   { k: 'priceCouponDeal', label: '会员券后到手价（元）', type: 'number', promoGroup: true },
   { k: 'priceCouponSubDeal', label: '会员国补到手价 15%（元）', type: 'number', promoGroup: true },
-  { k: 'promoNote', label: '电商价格备注', type: 'text', promoGroup: true },
+  { k: 'promoNote', label: '电商价格备注', type: 'text', promoGroup: true, multiline: true },
   { k: 'owner', label: '负责人', type: 'enum', options: ['楼洋昕', '张国焘', '任旭岩', '李宇翔', '杜存玉', '蔡得利', '朱雨欣', '胡桂旭明', '赵雨薇'], required: true },
   { k: 'targetMarket', label: '目标市场', type: 'text' },
 ];
@@ -1250,6 +1250,8 @@ function openEditor(p) {
       input = `<input type="date" data-k="${x.k}" value="${esc(String(v).replace(/\./g, '-')).slice(0, 10)}">`;
     } else if (x.type === 'number') {
       input = `<input type="number" step="0.01" min="0" data-k="${x.k}" value="${v === undefined ? '' : v}">`;
+    } else if (x.multiline) {
+      input = `<textarea data-k="${x.k}" rows="3" placeholder="Enter 换行">${esc(v)}</textarea>`;
     } else {
       input = `<input type="text" data-k="${x.k}" value="${esc(v)}">`;
     }
