@@ -506,3 +506,17 @@ table.list:not(.fake-table) tbody tr:hover td:nth-child(5), table.list:not(.fake
 #view-trend .price-table td .badge-st { white-space: nowrap; }
 .price-table tr.trow-link { cursor: pointer; }
 .price-table tr.trow-link:hover td { background: #f6f4fd; }
+/* 价格趋势折线图 */
+.trend-chart-card { padding: 16px 18px; margin-bottom: 14px; }
+.trend-chart-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.trend-chart-head strong { font-size: 14px; color: #5b4bb7; }
+.trend-chart-head select { padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--ink); background: #fff; outline: none; max-width: 220px; }
+.link-btn { border: 0; background: none; color: #4b5ae8; cursor: pointer; font-size: 12px; padding: 4px 6px; }
+.link-btn:hover { text-decoration: underline; }
+.trend-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.trend-chips .chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; background: #f6f4fd; color: #3d3468; font-size: 12px; font-weight: 600; }
+.trend-chips .chip .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.trend-chips .chip b { cursor: pointer; font-weight: 400; opacity: .55; padding: 0 1px; }
+.trend-chips .chip b:hover { opacity: 1; color: #c0392b; }
+.trend-chart-wrap { position: relative; height: 320px; }
+#view-trend .price-table svg.spark { display: block; }
