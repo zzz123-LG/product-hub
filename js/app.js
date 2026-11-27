@@ -676,7 +676,7 @@ function barChart(data) {
 /* =========================================================
  * 产品库：列表 / 搜索 / 筛选
  * ======================================================= */
-let listState = { q: '', scope: null, filters: { series: '', status: '', channel: '', owner: '', recordStatus: '', minPrice: '', maxPrice: '' }, sort: 'updatedAt', dir: -1, page: 1, perPage: 15 };
+let listState = { q: '', scope: null, filters: { series: '', status: '', channel: '', owner: '', recordStatus: '', minPrice: '', maxPrice: '' }, sort: 'launchDate', dir: -1, page: 1, perPage: 15 };
 
 function allTags() { const t = new Set(); DB.products.forEach(p => p.tags.forEach(x => t.add(x))); return [...t]; }
 
